@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [main, "claude/**"]
+    # Documentation-only pushes do not need a build.
+    paths-ignore: ["docs/**", "**/*.md", "LICENSES/**"]
   pull_request:
   workflow_dispatch:
 
