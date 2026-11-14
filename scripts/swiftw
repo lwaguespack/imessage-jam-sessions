@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Usage: scripts/swiftw <swift arguments...>   Runs swift from the local toolchain, or in Docker when there is none.
+#
+# In Docker the repository is mounted at its own absolute path and the working directory is kept (the repository
+# root is used when called from outside it), so paths in compiler output are the same as on the host.
+#
+# Environment:
+#   RIFF_SWIFT_IMAGE   Docker image to use when no local toolchain exists. Default: swift:6.2-noble.
+#   RIFF_SWIFTW_TOOL   Toolchain program to run in place of swift, for example llvm-cov.
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+image="${RIFF_SWIFT_IMAGE:-swift:6.2-noble}"
+tool="${RIFF_SWIFTW_TOOL:-swift}"
+dockerd_log=/tmp/riff-dockerd.log
+
+fail() {
+    printf 'swiftw: %s\n' "$*" >&2
+    exit 1
+}
+
+if command -v swift >/dev/null 2>&1; then
+    if [[ "$tool" == swift ]]; then
+        exec swift "$@"
+    fi
+    # Other tools must come from the same toolchain as swift: llvm-cov, for one, only reads profiles written by
+    # its own version. Xcode does not put them on PATH, so ask xcrun first, then look beside swift.
+    if command -v xcrun >/dev/null 2>&1 && xcrun --find "$tool" >/dev/null 2>&1; then
+        exec xcrun "$tool" "$@"
+    fi
+    beside_swift="$(dirname "$(command -v swift)")/$tool"
+    if [[ -x "$beside_swift" ]]; then
+        exec "$beside_swift" "$@"
+    fi
+    if command -v "$tool" >/dev/null 2>&1; then
+        exec "$tool" "$@"
+    fi
+    fail "found swift but not '$tool' in the same toolchain."
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+    fail "no swift toolchain on PATH and no docker to run one in.
+Install Xcode or a toolchain from https://www.swift.org/install, or install Docker."
+fi
+
+docker_ready() {
+    docker info >/dev/null 2>&1
+}
+
+start_dockerd() {
+    echo "swiftw: the Docker daemon is not running; starting dockerd (log: $dockerd_log)" >&2
+    # A session of its own, so the daemon outlives this script and a Ctrl-C aimed at the build.
+    setsid nohup dockerd >"$dockerd_log" 2>&1 </dev/null &
+    local waited=0
+    until docker_ready; do
+        if ((waited >= 30)); then
+            fail "dockerd did not come up within 30 s. See $dockerd_log."
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+}
+
+if ! docker_ready; then
+    # Cloud sessions run as root with Docker installed but not started. Anywhere else, starting a system daemon
+    # is the user's call.
+    if [[ "$(uname -s)" == Linux && "$(id -u)" -eq 0 ]] && command -v dockerd >/dev/null 2>&1; then
+        start_dockerd
+    else
+        fail "no swift toolchain on PATH, and the Docker daemon is not reachable.
+Start Docker (or install a Swift toolchain) and run this again."
+    fi
+fi
+
+if ! docker image inspect "$image" >/dev/null 2>&1; then
+    echo "swiftw: pulling $image" >&2
+    # Progress goes to stderr so that stdout carries only the tool's own output.
+    docker pull "$image" >&2 || fail "could not pull $image."
+fi
+
+workdir="$(pwd -P)"
+case "$workdir/" in
+    "$repo_root"/*) ;;
+    *) workdir="$repo_root" ;;
+esac
+
+# --init gives the container a real init process, without which Ctrl-C does not stop the build.
+docker_args=(run --rm --init --interactive --volume "$repo_root:$repo_root" --workdir "$workdir")
+if [[ -t 0 && -t 1 ]]; then
+    docker_args+=(--tty)
+fi
+if [[ "$(id -u)" -ne 0 ]]; then
+    # Build as the calling user so .build is not left owned by root. That user has no home directory in the
+    # image, and SwiftPM needs one for its caches.
+    docker_args+=(--user "$(id -u):$(id -g)" --env HOME=/tmp)
+fi
+
+exec docker "${docker_args[@]}" "$image" "$tool" "$@"
