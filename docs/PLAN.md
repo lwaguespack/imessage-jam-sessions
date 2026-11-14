@@ -1,5 +1,12 @@
 # iMessage Rhythm Game — Implementation Plan
 
+> **Revision 1, as written before review.** This text is unchanged from the original plan. A review on
+> 2026-11-14 found problems that change parts of sections 3 to 9, 11, 12 and the appendix. Where this
+> document disagrees with [DECISIONS.md](DECISIONS.md) or the specs in [specs/](specs/), those win.
+> The evidence is in [PLAN_REVIEW.md](PLAN_REVIEW.md); the amended phase outlines are in
+> [plan/](plan/README.md). The three diagrams did not survive the export and are marked
+> "embedded content" below.
+
 Nov 12, 2026 · @Lo
 
 ## 1. Overview
