@@ -1,0 +1,186 @@
+{
+ "verdicts": [
+  {
+   "id": "MSG-1",
+   "verdict": "confirmed",
+   "severityAfter": "blocker",
+   "reasoning": "Tried to refute on three fronts and failed. (1) Facts: the didReceive page carries the race note verbatim, selectedMessage says it \"is not updated when you receive new messages\", and MSSession says a later message on the session removes the previous one. The WWDC 2016 session 224 transcript (a primary source the reviewer did not have) describes this exact group case: two replies sent at once, one becomes a summary line, \"only the tapped message is available to your iMessage app\", and Apple's advice is to keep state in the cloud. (2) Plan: PLAN.md never mentions didReceive, merging, or concurrency; the only ordering case in P4.5 is \"an old bubble tapped after newer ones\"; the section 13 risk table has no row for it. (3) Frequency: I simulated the plan as written (compose from the tapped bubble, about 2 minutes from tap to send). With 3 responders answering inside 30 minutes, at least two overlap in 35% of rounds; with 4 responders inside 10 minutes, 97%. This is normal use of Round mode, not a corner case. Blocker stands because Round mode is v1.0 scope and the fix changes Appendix C, which Phase 1 (P1.8) implements. The recommended direction (mergeable payload, per-device MatchStore, didReceive routed into it, re-post repair, idempotent XP ledger) is right and mostly pure RiffCore logic. Refinements for the outline, none of which change the verdict: bound the per-round results list (about 3.5 URL characters per round by my recomputation, so it needs a compaction rule for very long series); the duel `sr` counter alone is not at risk under strict alternation, only concurrent rematch is; the per-player-bubble design in item 8 deserves equal weight with the shared bubble because nothing is ever removed from the transcript; the three-device test needs three Apple IDs while section 12 lists two.",
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msmessagesappviewcontroller/didreceive(_:conversation:)",
+    "https://developer.apple.com/documentation/messages/msconversation/selectedmessage",
+    "https://developer.apple.com/documentation/messages/mssession",
+    "https://raw.githubusercontent.com/ASCIIwwdc/wwdc-session-transcripts/master/en/2016/224.vtt",
+    "https://developer.apple.com/forums/thread/51728"
+   ]
+  },
+  {
+   "id": "MSG-2",
+   "verdict": "partly-correct",
+   "severityAfter": "major",
+   "reasoning": "The scoping facts are right and I re-read all three pages: local, remote and sender UUIDs are \"scoped to this device\" and change if the extension is disabled and re-enabled or the app is reinstalled. WWDC 2016 session 224 says the same (\"unique on each device\", \"scoped to the install of the iMessage app\"). Section 3 does defer a documented fact to a spike and names the wrong phase. But the title overstates: a prefix of your own localParticipantIdentifier does work as a self-asserted id for telling me from them on one device, which is all section 3 claims to use it for. The finding itself concedes this. The real defects are narrower: the id is lost on disable/re-enable, reinstall and very likely device replacement, which orphans `by`, `sr` and friend records while a restored profile keeps its XP; it can never be matched against the receiver's remoteParticipantIdentifiers, and the 6.4 wording (\"keyed by conversation participant\") invites exactly that bug; and Phase 1 would implement the schema before S2 reports. The proposed app-generated id is cheap and right, but it does not fix the same person on iPhone and iPad, which is the case the plan's own iPad test will hit. I keep major because it is a schema decision due before Phase 1, not because of user-visible breakage in the common path.",
+   "correctedProblem": "Participant UUIDs are device- and install-scoped (documented, no spike needed). As a self-asserted id they work for me-versus-them on one device, but they are the wrong persistent player id: they change on extension disable/re-enable, reinstall and probably device replacement, orphaning `by`, `sr` and per-friend records; they cannot be mapped to the receiver's remoteParticipantIdentifiers, which the 6.4 wording invites; and neither they nor a local random id recognise the same person on a second device.",
+   "correctedRecommendation": "Adopt the app-generated random player id (6-8 random bytes, stored in profile.json so it travels with the profile in a backup) for `p`, `by` and series data, and key 6.4 records by the opponent's payload id. Keep participant UUIDs local only: sender == local as the 'I sent the latest version' check, and a device-local conversation key. Fix the section 3 row (scoping is documented; the spike is Phase S). Add two checks to S2: whether the local UUID is the same across conversations on one device, and whether a message sent from the user's other device arrives with senderParticipantIdentifier equal to this device's local UUID. If the second holds, use it to show 'You played this on your other device' instead of 'Your turn'. State in 5.2 that identity and progress are per device in v1 and that a third id in a duel is read-only. Note in the privacy policy that the id is a stable identifier visible to chat members.",
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msconversation/localparticipantidentifier",
+    "https://developer.apple.com/documentation/messages/msconversation/remoteparticipantidentifiers",
+    "https://developer.apple.com/documentation/messages/msmessage/senderparticipantidentifier",
+    "https://raw.githubusercontent.com/ASCIIwwdc/wwdc-session-transcripts/master/en/2016/224.vtt"
+   ]
+  },
+  {
+   "id": "MSG-3",
+   "verdict": "confirmed",
+   "severityAfter": "major",
+   "reasoning": "Verified verbatim on the Messages framework overview and on UIView.gestureRecognizerShouldBegin(_:): since iOS 17 Messages resizes iMessage apps with a vertical pan, and apps using touchesBegan/Moved/Ended must either switch to a gesture recognizer or override gestureRecognizerShouldBegin. Forum thread 731127 matches the quotes: a SpriteKit iMessage app reported vertical touches being taken as sheet drags (\"This breaks the app utterly\"), an Apple Frameworks Engineer gave the same remedy, and a December 2023 follow-up reports recognizers still being overridden, unanswered. The plan's minimum OS is 17.0, input is SpriteKit touch handling hosted in SwiftUI (where the underlying SKView cannot be subclassed to add the override), holds require a thumb held down, and a grep of PLAN.md finds no mention of gesture, pan or swipe in section 3, Phase S, P3.3 or the risk table. Taps judged on touch-down would mostly survive, but holds and drifting thumbs would move the sheet and trigger the collapse pause, so the core loop is at risk on every supported OS. Major, not blocker, because Apple documents the fix; the right response is the spike task and the P3.3 respecification the reviewer proposes. Proportionality notes: the minimum design is a UIKit input view that overrides gestureRecognizerShouldBegin (Apple's second option), with the custom recognizer as a second layer; four OS versions is more than one owner can cover, so test the oldest and newest devices actually available. The home-indicator and preferredScreenEdgesDeferringSystemGestures point is unverified and correctly left to the device test.",
+   "sources": [
+    "https://developer.apple.com/documentation/messages",
+    "https://developer.apple.com/documentation/uikit/uiview/gesturerecognizershouldbegin(_:)",
+    "https://developer.apple.com/forums/thread/731127"
+   ]
+  },
+  {
+   "id": "MSG-4",
+   "verdict": "partly-correct",
+   "severityAfter": "major",
+   "reasoning": "The gap is real: PLAN.md contains no mention of SMS, RCS, Android or green-bubble chats, MSConversation exposes no transport property, and MSMessageErrorCode has no code for a non-iMessage conversation. The reviewer said no primary source describes what fallback recipients get. One exists: the WWDC 2016 session 224 transcript says fallback platforms receive \"two separate messages. The first one will be the image as provided in the template layout. The second one will be a URL\", and that only http/https URLs are sent, \"If it's a data URL, we won't\". The MSMessageLiveLayout page puts SMS devices in the same fallback class as macOS and iOS 9. So the likely outcome in an SMS/RCS or mixed chat is the score card plus the whole payload URL as text, 376 to about 3,600 characters by my recomputation of the plan's schema. That makes the concern stronger than the reviewer stated, and it gives a design lever the recommendation lacks. The SMS/RCS-specific behaviour on current iOS is still unconfirmed and needs the device test. Major holds: mixed groups are common, Round mode targets groups, and the URL scheme is part of the Phase 1 codec.",
+   "correctedProblem": "Per WWDC 2016 session 224, recipients on platforms without iMessage-app support get the template image and then the https URL as a separate message; Apple's docs class SMS devices with those platforms. In a non-iMessage or mixed chat the likely result is a score card nobody can tap plus a 376-3,600 character payload URL as text, and the extension has no API to detect such a chat. Exact SMS/RCS behaviour on iOS 17-27 is unverified.",
+   "correctedRecommendation": "Keep the reviewer's S2 test and the three-audience split in 5.3/5.4. Add a `data:` URL variant to that test (documented as allowed; per WWDC it is not sent in the fallback). Decide the URL form before PayloadCodec is frozen: if the `data:` form round-trips on the supported OS range, prefer it for v1, since fallback recipients then get only the score card, nothing reaches a server and the domain decision disappears; the cost is no click-through page on Mac. If https is kept, the fallback page must say 'needs iMessage on iPhone'. Show a sender-side notice only if S2 finds a usable signal; otherwise make the card self-explanatory. Add the risk row.",
+   "sources": [
+    "https://raw.githubusercontent.com/ASCIIwwdc/wwdc-session-transcripts/master/en/2016/224.vtt",
+    "https://developer.apple.com/documentation/messages/msmessagelivelayout",
+    "https://developer.apple.com/documentation/messages/msmessage/url",
+    "https://developer.apple.com/documentation/messages/msmessageerrorcode",
+    "https://developer.apple.com/forums/thread/62331"
+   ]
+  },
+  {
+   "id": "MSG-5",
+   "verdict": "partly-correct",
+   "severityAfter": "major",
+   "reasoning": "Both forum threads say what the reviewer reports. Thread 53167: Apple staff state will/didSelect fire only for a different message and that selection and presentation style are orthogonal; developers found no way to deselect. Thread 816190 (Feb 2026, iPad Pro M4 and iPad Air, iOS 18 and 26): after a turn is sent and the extension collapses, tapping the opponent's new bubble often does not open the extension, and reading selectedMessage in willBecomeActive/didBecomeActive/didReceive, which is the plan's stated iPad mitigation, did not help. Apple DTS did not confirm a bug and asked for a sample; the poster published one (github.com/abassey/test-project-ipad-issue). The plan already carries an iPad risk row and S2, so this is a sharpening of a known risk, but the sticky-selection ambiguity in the 5.4 table is new and the router spec is cheap and testable. One part of the fix is wrong: treating iPad as 'best effort' is not an exit. The same thread says App Review flagged the iPad behaviour as incomplete functionality and that it blocked submission, and guideline 2.4.1 says iPhone apps should run on iPad whenever possible. Whether sticky selection still behaves this way on iPhone on current iOS is unverified.",
+   "correctedRecommendation": "Keep the router as a pure function re-evaluated on every lifecycle callback, the explicit Home action with a per-message 'left this match' flag, and the S2 reproduction. Run the public sample from thread 816190 on the test iPad first; it is a quick check of whether the failure reproduces on current iPadOS. Do not plan on downgrading iPad to best effort: App Review tests there. If the failure reproduces, find the workaround in the spike (compare requestPresentationStyle(.compact) with dismiss() after the send starts) before Phase 4, and record the result in the risk table and the review notes.",
+   "sources": [
+    "https://developer.apple.com/forums/thread/53167",
+    "https://developer.apple.com/forums/thread/816190",
+    "https://raw.githubusercontent.com/abassey/test-project-ipad-issue/master/README.md",
+    "https://developer.apple.com/app-store/review/guidelines/",
+    "https://developer.apple.com/documentation/messages/msmessagesappviewcontroller/presentationstyle"
+   ]
+  },
+  {
+   "id": "MSG-6",
+   "verdict": "confirmed",
+   "severityAfter": "minor",
+   "reasoning": "NSExtensionContext.open's page says an iMessage extension can use it \"only to open its parent app, and only if the parent app is shown on the iOS home screen\"; this app has no such parent. Apple staff in thread 54410 say the same. Guideline 5.1.1(i) does require the privacy policy link \"within the app in an easily accessible manner\". The SKStoreProductViewController page confirms embedding throws; note the 2016 thread shows both a modal presentation (top of the page clipped) and an embedded one, so the modal route is plausible but untested on current iOS. Whether SwiftUI Link silently fails in the extension is unverified and is covered by the proposed device test. Minor is right: the fix is copy plus an in-app text screen.",
+   "sources": [
+    "https://developer.apple.com/documentation/foundation/nsextensioncontext/open(_:completionhandler:)",
+    "https://developer.apple.com/forums/thread/54410?page=2",
+    "https://developer.apple.com/documentation/storekit/skstoreproductviewcontroller",
+    "https://developer.apple.com/app-store/review/guidelines/"
+   ]
+  },
+  {
+   "id": "MSG-7",
+   "verdict": "confirmed",
+   "severityAfter": "minor",
+   "reasoning": "supportedInterfaceOrientations is consulted only on \"the root view controller or the topmost modal view controller that fills the window\", which an extension's controller is not. Thread 53981 matches the quote: Info.plist and the override were both tried and the layout still rotated; the reply relaying Apple's position is second-hand, as the reviewer says. PLAN.md 4.1 says \"Portrait only\" and nothing in the plan covers a wide, short view mid-song (no mention of landscape or rotation anywhere). The pause-and-overlay rule driven by view bounds is the proportionate fix.",
+   "sources": [
+    "https://developer.apple.com/documentation/uikit/uiviewcontroller/supportedinterfaceorientations",
+    "https://developer.apple.com/forums/thread/53981"
+   ]
+  },
+  {
+   "id": "MSG-8",
+   "verdict": "confirmed",
+   "severityAfter": "minor",
+   "reasoning": "All six doc quotes check out: insert only stages a draft and its completion runs on a background queue; isPending distinguishes a staged draft from a sent message; didStartSending does not guarantee delivery; didCancelSending fires when the draft is deleted; dismiss() marks the extension for termination. The plan defines neither 'submitted' nor what happens between insert and Send. Impact is limited because the plan allows restarts before submitting, so a deleted draft is a lost run, not a rules hole; that is why minor is right. The small state machine and synchronous persistence at song end are proportionate and also feed MSG-1's MatchStore.",
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msconversation/insert(_:completionhandler:)-3g248",
+    "https://developer.apple.com/documentation/messages/msmessage/ispending",
+    "https://developer.apple.com/documentation/messages/msmessagesappviewcontroller/didstartsending(_:conversation:)",
+    "https://developer.apple.com/documentation/messages/msmessagesappviewcontroller/didcancelsending(_:conversation:)",
+    "https://developer.apple.com/documentation/messages/msmessagesappviewcontroller/dismiss()"
+   ]
+  },
+  {
+   "id": "MSG-9",
+   "verdict": "confirmed",
+   "severityAfter": "minor",
+   "reasoning": "willResignActive's page warns against asynchronous work \"because the extension might terminate before the asynchronous tasks have completed\"; the two NSExtensionHost notifications exist as described; MSConversation's member list has no identifier. PLAN.md 4.7 names the pause events but not their signals, and assumes the process survives a pause. Listing the signals, discarding runs lost to termination, writing a finished run synchronously and binding pending runs to a device-local conversation key are all small and correct. The wrong-chat insert is an edge case, so minor.",
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msmessagesappviewcontroller/willresignactive(with:)",
+    "https://developer.apple.com/documentation/foundation/nsnotification/name-swift.struct/nsextensionhostwillresignactive",
+    "https://developer.apple.com/documentation/foundation/nsnotification/name-swift.struct/nsextensionhostdidenterbackground",
+    "https://developer.apple.com/documentation/messages/msconversation"
+   ]
+  },
+  {
+   "id": "MSG-10",
+   "verdict": "confirmed",
+   "severityAfter": "minor",
+   "reasoning": "The inconsistency is in the plan's own text: section 3 recruits the Phase S partner \"via TestFlight\" while icons, privacy manifest and TestFlight are P8.1-P8.3. The required-reason article says, verbatim, that from May 1, 2024 apps that do not declare required-reason API use \"aren't accepted by App Store Connect\" and that the manifest belongs in the bundle containing the executable, which here is the extension. The HIG icon table matches the sizes quoted, including the square Settings and App Store sizes that P8.1's \"4:3 sizes\" omits. The 1024x768 slot and the ITMS error codes were not verified here. Either remedy works: move the upload prerequisites into Phase 0, or state that Phase S installs straight from Xcode and TestFlight starts in Phase 4. A schedule problem, not a design one, so minor.",
+   "sources": [
+    "https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api",
+    "https://developer.apple.com/design/human-interface-guidelines/imessage-apps-and-stickers"
+   ]
+  },
+  {
+   "id": "MSG-11",
+   "verdict": "partly-correct",
+   "severityAfter": "minor",
+   "reasoning": "The mechanics are right: MSMessage.url says macOS loads the URL in a browser, a query string reaches the server, and Apple's definition of 'collect' and the Gameplay Content and User ID categories read as quoted. Guideline 2.1(a) does require functional URLs and no empty websites, and the plan's \"any https placeholder for TestFlight\" would send payloads to a host the owner may not control. The label risk is a conservative reading, since the app itself transmits nothing, which is why minor is right. Two corrections. Fragment survival through MSMessage is unverified, as the reviewer notes. And the recommendation omits the option Apple staff gave in the cited thread 62331 and that WWDC 2016 session 224 backs: a `data:` URL is never sent in the fallback message and never contacts a server.",
+   "correctedRecommendation": "Test three URL forms in S2 for byte-exact round trip: `data:`, https with the payload in the fragment, https with the payload in the query. Prefer `data:` for v1 if it round-trips across the supported OS range (no server contact, no raw URL in fallbacks, no domain decision); otherwise the fragment form with a static page; the query form only with access logging off and a line in the privacy policy. In every case the decoder reads only the payload and ignores scheme, host and path, the cap applies to the whole URL string under 5,000 characters, and no domain outside the owner's control is used, including in TestFlight. A hosted privacy policy URL is still needed for App Store Connect.",
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msmessage/url",
+    "https://developer.apple.com/app-store/app-privacy-details/",
+    "https://developer.apple.com/app-store/review/guidelines/",
+    "https://developer.apple.com/forums/thread/62331",
+    "https://raw.githubusercontent.com/ASCIIwwdc/wwdc-session-transcripts/master/en/2016/224.vtt"
+   ]
+  },
+  {
+   "id": "MSG-12",
+   "verdict": "confirmed",
+   "severityAfter": "minor",
+   "reasoning": "summaryText and accessibilityLabel are documented as quoted and appear nowhere in PLAN.md; the MSSession page lists summaryText in its own workflow. The image page confirms the 6-point crop and rounded corners. Apple staff in thread 53174 confirm received messages have no layout. The 'your own place' point is sound: the card is rendered once by the sender, so it can only show the sender's place. One correction to the evidence: the '$' + UUID placeholder is absent from current docs but was official; the WWDC 2016 session 224 transcript says Messages \"will replace the identifiers with the contact name\" in template text and summaryText, and thread 52130 ends with it working after a beta update. The plan already marks it verify-on-device, so that sub-point is partly handled; the phone-number fallback for non-contacts rests on search summaries only. Using the payload nickname as the default and the placeholder only if S2 passes is a reasonable call.",
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msmessage/summarytext",
+    "https://developer.apple.com/documentation/messages/msmessage/accessibilitylabel",
+    "https://developer.apple.com/documentation/messages/msmessagetemplatelayout/image",
+    "https://developer.apple.com/forums/thread/53174",
+    "https://developer.apple.com/forums/thread/52130",
+    "https://raw.githubusercontent.com/ASCIIwwdc/wwdc-session-transcripts/master/en/2016/224.vtt"
+   ]
+  },
+  {
+   "id": "MSG-13",
+   "verdict": "confirmed",
+   "severityAfter": "minor",
+   "reasoning": "PLAN.md 5.2 completes a group round when \"every member has submitted or the starter closes it\" and 6.1 pays podium XP on completion. The only member count the API offers is remoteParticipantIdentifiers.count + 1, which includes people without the app. So completion depends on the starter remembering to close, from the same device and install that started the round. The reasoning needs no further source. A payload-carried start time, a member count fixed at start and a locally computed expiry are small RiffCore rules. Letting any participant close after a grace period is optional; the expiry alone fixes the stuck-round case. Devices can still disagree on contents until MSG-1 is addressed, which the finding does not claim to solve.",
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msconversation/remoteparticipantidentifiers"
+   ]
+  },
+  {
+   "id": "MSG-14",
+   "verdict": "confirmed",
+   "severityAfter": "nit",
+   "reasoning": "The compact-style page says the keyboard is unavailable, that a control needing it \"must\" request expanded first, and that compact layouts must not include horizontally scrolling elements; the HIG says to let people edit text only in the expanded view. The plan's \"Menus work in compact\" and \"Players set a nickname\" need the one-line rule proposed. Nit is right.",
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msmessagesapppresentationstyle/compact",
+    "https://developer.apple.com/design/human-interface-guidelines/imessage-apps-and-stickers"
+   ]
+  },
+  {
+   "id": "MSG-15",
+   "verdict": "confirmed",
+   "severityAfter": "nit",
+   "reasoning": "XcodeGen's spec lists application.messages and app-extension.messages, its source comment says simple messages applications without sources get no compile phase, and the icon-name preset exists only for the extension product type; I checked the copies in the scratchpad. The wrapper never runs, so 7.5's \"shared by the wrapper app and the extension\" describes forward compatibility only, and a nil-container fallback is a fair robustness addition. One part I could not verify: that App Groups do not need the paid membership. Apple's capabilities table did not load here and search results were inconclusive, so treat the section 12 correction as probable, not established.",
+   "sources": [
+    "https://raw.githubusercontent.com/yonaskolb/XcodeGen/master/Docs/ProjectSpec.md",
+    "https://raw.githubusercontent.com/yonaskolb/XcodeGen/master/Sources/ProjectSpec/XCProjExtensions.swift"
+   ]
+  }
+ ],
+ "missed": []
+}

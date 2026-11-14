@@ -1,0 +1,369 @@
+{
+ "findings": [
+  {
+   "id": "AUD-1",
+   "title": "Audio session policy is never specified; the default session is muted by the Ring/Silent switch",
+   "severity": "major",
+   "kind": "gap",
+   "planRefs": [
+    "3 (audio latency row)",
+    "4.7",
+    "4.8",
+    "Phase 2 P2.1",
+    "7.4 (Open to Home under 1 s)",
+    "Appendix B (previewStartSec)"
+   ],
+   "planSays": "P2.1: \"Audio engine: one player node per stem plus effects, audio session setup, interruption and route-change handling.\" No category, options, activation/deactivation timing or silent-switch behaviour appears anywhere in the plan.",
+   "problem": "If the category is left at the default (soloAmbient) or set to ambient, the Ring/Silent switch silences the song and the game is unplayable for everyone whose phone is on silent. The only category that plays through silent is .playback, which is non-mixable: activating it stops the user's Music/Spotify. That makes activation timing a design decision the plan has not made: activating on extension launch, in compact view, or for song-picker previews (the manifest carries previewStartSec) would kill background music every time the app drawer opens, and failing to deactivate with notifyOthersOnDeactivation leaves it stopped. Activation can also fail (higher-priority session such as a call), and deactivating while the engine runs returns an isBusy error. None of this is listed as a decision or a verify-on-device item.",
+   "evidence": "AVAudioSession overview: default session behaviour includes \"In iOS, setting the Ring/Silent switch to silent mode silences any audio the app is playing\". Category.soloAmbient: \"The default audio session category. Your audio is silenced by screen locking and by the Silent switch\". Category.ambient: \"Screen locking and the Silent switch ... silence your audio\". Category.playback: \"your app audio continues with the Silent switch set to silent ... By default, using this category implies that your app's audio is nonmixable\u2014activating your session will interrupt any other audio sessions which are also nonmixable\". AVAudioSession overview note: \"it's generally preferable to defer this call until your app begins audio playback\". setActive(_:options:): \"The session fails to activate if another audio session has higher priority than yours (such as a phone call) ... Deactivating an audio session with running audio objects stops the objects, makes the session inactive, and returns an AVAudioSession.ErrorCode.isBusy error.\" I found no Apple statement or forum evidence either way about activating a non-mixable playback session from a Messages extension process.",
+   "recommendation": "Add a subsection \"7.3a Audio session policy\" and a [DECIDE] row. Policy: category .playback, mode .default, no options. Create the engine and touch AVAudioSession lazily when the player taps Play (or explicitly taps a preview), never in willBecomeActive or compact view (also protects the 1 s open budget). On finish, pause, collapse or willResignActive: stop players, stop the engine, then setActive(false, options: .notifyOthersOnDeactivation). Handle a thrown setActive with a visible \"Can't start audio right now (on a call?)\" state. Before starting, if AVAudioSession.outputVolume == 0 show \"Turn the volume up\". [DECIDE]: \"Game audio plays even when the phone is on silent (recommended)\" versus respecting silent and blocking Play with a prompt. Make the extension-side behaviour the first item of spike S1 (see AUD-5).",
+   "confidence": "high",
+   "verifyOnDevice": true,
+   "deviceTest": "Inside the Messages extension on a real iPhone, Ring/Silent set to silent and Apple Music playing: tap Play. Expect setCategory(.playback) and setActive(true) to succeed, Music to stop, the song to be audible. Finish or collapse: Music resumes within about 2 s. Repeat while on a phone call: expect a clean error state, no crash.",
+   "sources": [
+    "https://developer.apple.com/documentation/avfaudio/avaudiosession",
+    "https://developer.apple.com/documentation/avfaudio/avaudiosession/category-swift.struct/playback",
+    "https://developer.apple.com/documentation/avfaudio/avaudiosession/category-swift.struct/soloambient",
+    "https://developer.apple.com/documentation/avfaudio/avaudiosession/category-swift.struct/ambient",
+    "https://developer.apple.com/documentation/avfaudio/avaudiosession/setactive(_:options:)"
+   ]
+  },
+  {
+   "id": "AUD-2",
+   "title": "The song clock is host-time dead reckoning from a requested T0, and the drift monitor and the \"under 2 ms drift\" gate are not well defined",
+   "severity": "major",
+   "kind": "design-flaw",
+   "planRefs": [
+    "7.3 steps 1, 2, 5, 6",
+    "Phase 2 P2.3 and Done-when",
+    "Phase S1",
+    "15 intro (drift threshold)",
+    "7.2 (SongClock in RiffMessages/Audio)"
+   ],
+   "planSays": "\"t_song(t) = (t - T0) - L - delta_audio\"; \"Once per second, the clock estimate is compared with the player node's rendered sample time; drift over 3 ms is corrected gradually\"; \"Pause and resume re-anchor T0\"; done when \"drift stays under 2 ms over 3 minutes\".",
+   "problem": "Four separate problems. (a) (t - T0) runs on the host clock from the start time that was requested, not the one realized, so it is not the audio clock the plan says is the source of truth. The two clocks skew: 2 ms over 180 s is 11 ppm; a 50 to 100 ppm DAC or Bluetooth clock gives 9 to 18 ms over 3 minutes. So the gate either fails for hardware reasons the code cannot fix, or (if measured after correction) tests the monitor against itself. (b) The \"rendered sample time\" (lastRenderTime) advances in I/O-buffer steps: 256 to 1024 frames is 5.3 to 21.3 ms at 48 kHz. Compared naively against a continuous host clock once per second it shows a 0 to 21 ms sawtooth, larger than the 3 ms threshold, so the monitor would chase noise. It is only meaningful when evaluated at lastRenderTime.hostTime. (c) When audio stops (interruption, hardware format change) the formula keeps advancing until a notification handler runs, so the miss sweep scores misses against silence. (d) The resume formula has no term for the resume position. Also, S1 says \"log drift\" without saying between what; two players on one engine cannot drift from each other.",
+   "evidence": "Computed: 2e-3/180 = 11.1 ppm; 50 ppm x 180 s = 9 ms; 100 ppm x 180 s = 18 ms; 1024/48000 = 21.3 ms, 256/48000 = 5.3 ms. AVAudioTime docs: a time is represented \"As host time, using the system's basic clock with mach_absolute_time()\" and \"As audio samples at a particular sample rate\". AVAudioPlayerNode docs: the player timeline is superimposed on node sample times and playerTime(forNodeTime:) returns \"nil if the player isn't playing\". AVAudioEngineConfigurationChangeNotification: on a hardware channel-count or sample-rate change \"the audio engine stops, uninitializes itself, and issues this notification\". setPreferredIOBufferDuration docs: typical maximum buffer 0.093 s, minimum about 0.005 s. A 2017 forum report (thread 93917, unanswered) describes host-time scheduling producing silence, so the realized start should be measured, not assumed.",
+   "recommendation": "Rewrite 7.3 steps 2 and 5 as a sample-anchored clock. Each frame: n = player.lastRenderTime, p = player.playerTime(forNodeTime: n); o = segmentStartSec + p.sampleTime/p.sampleRate - AVAudioTime.seconds(forHostTime: n.hostTime). Keep a filtered offset \u00f4 that slews at most 0.2 ms per frame toward o and snaps (and counts a glitch) if |o - \u00f4| > 50 ms. t_song(t) = t + \u00f4 - L - delta. During the lead-in, before the first valid pair, use the requested T0. Stall rule: if lastRenderTime is nil, the player is not playing, or now - n.hostTime > 2 x ioBufferDuration + 50 ms, freeze the clock and enter Paused. Put the filter, stall rule and pause/resume mapping in RiffCore as a pure ClockModel fed with (hostSeconds, sampleTime, sampleRate) so it is unit-tested in CI; keep only the AVFoundation adapter in RiffMessages/Audio. Replace the gate with: over 3 minutes on each route, |SongClock - sample-time truth| evaluated at render-pair instants is under 1 ms at p99 with zero unflagged discontinuities; raw host-versus-sample skew is logged in ppm and not gated. Replace the 3 ms drift threshold in GameConfig with the slew and snap constants.",
+   "confidence": "high",
+   "verifyOnDevice": true,
+   "deviceTest": "S1 logs (hostTime, sampleTime) pairs from player.lastRenderTime / playerTime(forNodeTime:) at 10 Hz for 3 minutes on speaker, wired adapter and AirPods. Report: realized start minus requested T0 in ms, skew in ppm, step size in frames, and whether playerTime is non-nil and negative between play(at:) and T0 (the lead-in clock depends on it).",
+   "sources": [
+    "https://developer.apple.com/documentation/avfaudio/avaudioplayernode",
+    "https://developer.apple.com/documentation/avfaudio/avaudiotime",
+    "https://developer.apple.com/documentation/avfaudio/avaudioengineconfigurationchangenotification",
+    "https://developer.apple.com/documentation/avfaudio/avaudiosession/setpreferrediobufferduration(_:)",
+    "https://developer.apple.com/forums/thread/93917"
+   ]
+  },
+  {
+   "id": "AUD-3",
+   "title": "L is defined as hardware latency plus the I/O buffer; with a scheduled start the buffer is already in the timestamp, so this double-counts it",
+   "severity": "major",
+   "kind": "factual-error",
+   "planRefs": [
+    "7.3 step 2",
+    "Phase 2 P2.1 (\"plus effects\")",
+    "11 Diagnostics report"
+   ],
+   "planSays": "\"subtracts the output latency L (hardware latency plus I/O buffer, read from the audio session)\".",
+   "problem": "Audio that is started against a render timestamp (play(at:) with a host time) leaves the device at that timestamp plus the device and stream latency. The I/O buffer length is already accounted for in the timestamp. Adding ioBufferDuration to L over-compensates by 5.3 to 21.3 ms (the usual default buffer is about 1024 frames, roughly half the +/-45 ms Perfect window). Calibration would hide it as a negative offset, but uncalibrated play is biased and the stored offset then silently depends on the granted buffer size, which is only a preference (16 ms difference between 256 and 1024 frames at 48 kHz). L as defined also ignores processing latency of any effect unit placed after the stem players.",
+   "evidence": "AVAudioNode.h (iOS SDK header): outputPresentationLatency of the output node is \"the presentation latency of the device itself when rendering to an audio device (see AVAudioIONode(presentationLatency))\"; for a node connected directly to it, \"the output node's presentation latency plus the output node's processing latency\"; and \"it is recommended not to cache this value\". AVAudioIONode.presentationLatency: \"This corresponds to kAudioDevicePropertyLatency and kAudioStreamPropertyLatency\". No buffer term in either. Apple Developer Forums thread 25197 (poster theanalogkid): \"The timestamp you see at the render proc. account for the buffer frame size and the safety offset but the stream and device latencies are not accounted for.\" The forum post is a secondary source and I could not measure iOS behaviour, hence medium confidence.",
+   "recommendation": "Change step 2 to: L = player.outputPresentationLatency, falling back to AVAudioSession.outputLatency if it reports 0; read it after the engine starts and again on every route or configuration change; do not add ioBufferDuration. ioBufferDuration is added only when estimating latency of unscheduled play-now sounds (tap-click). State that no latency-bearing effect unit sits between a stem player and the main mixer (\"effects\" in P2.1 means separate SFX players). The Diagnostics report prints outputLatency, outputPresentationLatency, granted ioBufferDuration and hardware sample rate as separate fields.",
+   "confidence": "medium",
+   "verifyOnDevice": true,
+   "deviceTest": "Differential test that cancels human bias: same person, same sitting, built-in speaker. Run a 32-tap click test with preferredIOBufferDuration 0.005 and again with 0.023 (log the granted values), alternating three times, computing offsets with L = outputLatency only. Medians agreeing within +/-5 ms confirm the buffer does not belong in L; a shift close to the buffer difference (about 16 ms) means it does.",
+   "sources": [
+    "https://raw.githubusercontent.com/theos/sdks/master/iPhoneOS16.5.sdk/System/Library/Frameworks/AVFAudio.framework/Headers/AVAudioNode.h",
+    "https://developer.apple.com/documentation/avfaudio/avaudionode/outputpresentationlatency",
+    "https://developer.apple.com/documentation/avfaudio/avaudioionode/presentationlatency",
+    "https://developer.apple.com/forums/thread/25197"
+   ]
+  },
+  {
+   "id": "AUD-4",
+   "title": "A 16-tap calibration is too noisy for the +/-10 ms Phase 2 gate, and the estimator is unspecified",
+   "severity": "major",
+   "kind": "design-flaw",
+   "planRefs": [
+    "Phase 2 P2.5",
+    "Phase 2 Done-when",
+    "7.3 step 2",
+    "1 (Fair timing pillar)",
+    "P7.1"
+   ],
+   "planSays": "\"Latency calibrator: tap-along audio test (16 taps, trimmed mean)\" and done when \"the mean tap offset on the click track is within +/-10 ms on speaker and wired\".",
+   "problem": "The measuring instrument is a person. With per-tap scatter of 25 to 35 ms (ordinary for casual players) a 16-tap trimmed mean has a standard error of 6.5 to 9.1 ms. The gate then compares a second noisy run against the first, so a perfectly correct build passes only 73% (sigma 25), 57% (sigma 35) or 46% (sigma 45) of the time: the gate is flaky and cannot tell a 10 ms bug from noise. 2 to 10% of calibrations land more than 15 ms wrong. People also tap ahead of a metronome by tens of milliseconds, so the result is person plus device and may not match the same person's bias when reading a note highway. On built-in routes, where the reported latency may already be accurate to a few ms, a mandatory noisy calibration can make timing worse than the default. The plan gives no rules for warm-up taps, missed or extra taps, rejecting a sloppy run, or period aliasing (an offset beyond half the click period is ambiguous).",
+   "evidence": "Monte Carlo, 200,000 trials, script at /tmp/claude-0/-home-user-imessage-jam-sessions/1091d72a-dedf-55f2-8d6c-c68b0ba05340/scratchpad/review/calib.py. 16 taps, trim 2 each side: SE 6.47 ms (sigma 25), 9.07 ms (sigma 35), 11.66 ms (sigma 45); P(|post-calibration mean| <= 10 ms) = 0.73, 0.57, 0.46; P(|calibration error| > 15 ms) = 2.1%, 9.8%, 19.9%. With 32 taps: SE 4.57 ms (sigma 25), 6.43 ms (sigma 35). Sensorimotor-synchronization literature (Repp and Su 2013 review; a 2022 preprint) describes taps \"typically preceding the metronome by tens of milliseconds\".",
+   "recommendation": "Specify the estimator as pure code in RiffCore with tests: click period at least 600 ms (100 BPM) so +/-300 ms is unambiguous; 4 warm-up clicks discarded, then 32 scored; each tap matched to its nearest click; estimate = median (or 25% trimmed mean); reject and re-prompt if fewer than 24 matched taps or robust SD above 40 ms; clamp to +/-300 ms; show the number with \"test again\". Replace the Phase 2 gate with: (i) the automated clock gate from AUD-2; (ii) the mean of three separate 32-tap validation runs within +/-10 ms on speaker and wired; (iii) the 240 fps capture check from AUD-7. Add a post-run suggestion: after any run with 30 or more judged hits, if |median signed error| exceeds 15 ms, offer a one-tap \"Adjust by X ms\". First run: require the tap test only on wireless or unknown routes; on speaker and wired use defaults derived from S1 and let the post-run suggestion refine them.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "https://link.springer.com/article/10.3758/s13423-012-0371-2"
+   ]
+  },
+  {
+   "id": "AUD-5",
+   "title": "Spike S1 tests the least uncertain thing and omits the extension audio-session unknowns; it has no pass/fail rules",
+   "severity": "major",
+   "kind": "gap",
+   "planRefs": [
+    "Phase S (S1, S4, Done-when)",
+    "11 (Timing row, Diagnostics report)",
+    "13 (Timing risk row)",
+    "15.F (\"verify on device\")"
+   ],
+   "planSays": "\"S1 Audio sync: start backing and stem at one host time, log drift for 3 minutes, and run a tap-along test on speaker, wired and AirPods.\" \"Done when: you paste the Diagnostics report from each test device back to me. Any blocker changes the plan before Phase 3.\"",
+   "problem": "Two players on one AVAudioEngine share one sample clock, so stem-to-stem drift is zero by construction; S1 as written mostly confirms that. What is genuinely unknown, and existential for the product, is not in S1 or in any verify-on-device note: whether a Messages extension process can activate a non-mixable playback session and run a 90 s song; what happens to it on compact/collapse, app switch and lock; whether interruption, route-change and engine configuration notifications reach the extension; what I/O buffer is granted; which start-time form works and how accurately. \"Drift\" is undefined, \"wired\" is undefined on phones with no headphone jack, and with no thresholds a pasted report cannot say whether a blocker exists.",
+   "evidence": "Plan text as quoted; the only device-verification items named in the plan are haptics, 120 Hz, participant names/IDs and bubble taps. Web and Apple-forum searches found no documentation or reports on AVAudioSession activation from a Messages extension (keyboard and notification-service extensions do report setActive failures, error 561015905), so this is unverified rather than known-good.",
+   "recommendation": "Rewrite S1 as a checklist run inside the extension target, each line with a threshold. S1.1 Session: results of AUD-1's test in expanded and compact; behaviour on collapse, app switch, lock, incoming call (banner and full screen), Siri, alarm; a log of which notifications fired (interruption, iOS 27 lifecycle, routeChange, AVAudioEngineConfigurationChange, NSExtensionHostWillResignActive, MSMessagesAppViewController callbacks). S1.2 Scheduling: play(at:) with a host-time-only AVAudioTime versus a sample-time one; realized start error under 1 ms; both players report identical player sample time at the same node time. S1.3 Clock log per AUD-2. S1.4 Per-route latency fields and the differential buffer test from AUD-3. S1.5 Tap test, 32 taps x 3, per route, at least two people. Decision rules written in the plan: session cannot activate in the extension means stop and re-plan before any other phase; median residual on speaker within +/-15 ms across devices means no mandatory calibration on built-in routes; realized start error above 1 ms means anchor only on render pairs. Name the wired device (Apple USB-C or Lightning 3.5 mm adapter, or wired EarPods). Extend the Diagnostics report with: session category, hardware and file sample rates, granted ioBufferDuration, outputLatency, outputPresentationLatency, port type plus a hash of the port UID, skew ppm, glitch count, realized start error.",
+   "confidence": "high",
+   "verifyOnDevice": true,
+   "deviceTest": "The checklist above, run on at least two iPhones (oldest supported and current) inside Messages.",
+   "sources": [
+    "https://developer.apple.com/forums/thread/709107",
+    "https://developer.apple.com/forums/thread/110458"
+   ]
+  },
+  {
+   "id": "AUD-6",
+   "title": "Bluetooth latency is treated as a stable per-route constant, \"per-route\" is undefined, and AirPlay/HDMI/CarPlay are not handled",
+   "severity": "major",
+   "kind": "risk",
+   "planRefs": [
+    "3 (audio latency row)",
+    "7.5 (per-route offsets in settings.json)",
+    "Phase 2 P2.5",
+    "13 (Bluetooth latency complaints)",
+    "11 (device matrix)"
+   ],
+   "planSays": "\"per-route calibration, a Bluetooth warning\"; \"Detect the route, apply a default offset, prompt to calibrate, suggest speaker or wired for best scores\"; \"Bluetooth defaults and warning\".",
+   "problem": "(1) Developer reports indicate AirPods latency moves while iOS keeps reporting about 160 ms: one measured 215 to 220 ms right after connecting, decaying to 155 to 160 ms over 20 to 30 minutes; another saw the reported value stay at 160 ms while the system changed the real in-ear latency from 151 ms to 60 ms. A 55 to 65 ms swing is larger than the +/-45 ms Perfect window, so a calibration from minute 1 is wrong at minute 20 and \"prompt to calibrate\" does not fix it. (2) \"Per-route\" is not defined: one stored offset for every bluetoothA2DP device is wrong because latency differs per headset. (3) \"Apply a default offset\" on top of an L that already contains iOS's Bluetooth estimate double-counts unless the default is defined as a residual. (4) AirPlay can add about 2 s, and HDMI or car outputs add unknown processing delay; the plan's lead-in, miss duck and tap-click make no sense there and nothing blocks them.",
+   "evidence": "Apple Developer Forums thread 679274 (iPhone 12 mini, AirPods 2): \"session.outputLatency // 160.667ms\"; \"the actual measured latency is ca 215-220ms at first, but it is continuously decreasing over time. After about 20-30mins ... around 155-160ms\". Thread 764070: kAudioDevicePropertyLatency \"seems to always report 160ms for AirPods\" while system logs show \"latency 151MSec\" then \"latency 60MSec\". Both are single-developer reports with no Apple reply. AVAudioSession.outputLatency docs: \"Using an AirPlay-enabled device for your audio content can result in a 2-second delay. Check for this delay in game content.\" AVAudioSessionPortDescription.uid: \"A system-assigned unique identifier (UID) for the port.\"",
+   "recommendation": "Add a route table to section 7.3. Classes: built-in (builtInSpeaker), wired (headphones, usbAudio), wireless (bluetoothA2DP, bluetoothLE), unsupported (airPlay, HDMI, carAudio and anything unrecognized). Store offsets keyed by portType for built-in and by portType + port UID for wired and wireless. The default offset for every class is 0 residual on top of the reported L; add a Bluetooth constant only if S1 data shows a consistent residual. Wireless: non-blocking banner (\"Wireless audio: timing can drift; speaker or wired is best\"), an 8-click quick check offered before a duel run when that UID's calibration is older than 10 minutes or the device just connected, plus the post-run suggestion from AUD-4. Unsupported: block Play with an explanation. Add a [DECIDE]: whether wireless runs may use slow in-run adaptive offset (at most 0.5 ms per hit toward the running median error) in duels. Device matrix adds one non-Apple Bluetooth headset.",
+   "confidence": "medium",
+   "verifyOnDevice": true,
+   "deviceTest": "Freshly connected AirPods: run the 32-tap test at 0, 5, 15 and 30 minutes of continuous connection, logging outputLatency each time. A spread of medians above 20 ms with a constant reported value confirms the instability.",
+   "sources": [
+    "https://developer.apple.com/forums/thread/679274",
+    "https://developer.apple.com/forums/thread/764070",
+    "https://developer.apple.com/documentation/avfaudio/avaudiosession/outputlatency",
+    "https://developer.apple.com/documentation/avfaudio/avaudiosessionportdescription/uid"
+   ]
+  },
+  {
+   "id": "AUD-7",
+   "title": "Visual offset: display latency depends on the refresh rate, and a tap-to-flash test is a poor way to measure it",
+   "severity": "major",
+   "kind": "design-flaw",
+   "planRefs": [
+    "7.3 step 3",
+    "Phase 2 P2.5 (visual flash test)",
+    "7.4 (frame rate row)",
+    "P7.2 (offsets)",
+    "Phase S3"
+   ],
+   "planSays": "\"Each frame places notes using the song time plus a visual offset from calibration.\" P2.5: \"visual flash test\".",
+   "problem": "(1) The delay from the frame callback to light leaving the panel is a number of frame intervals, not a per-user constant. The same phone runs at 8.3 ms per frame at 120 Hz and 16.7 ms at 60 Hz (Low Power Mode, thermal limits, or the extension not being granted 120 Hz, which the plan itself marks unverified), so a single stored offset is wrong by roughly 8 to 17 ms whenever the rate changes. (2) Synchronizing taps to flashes is known to be much more variable than to sound, and the result also contains touch latency and a different personal bias from the audio test; the plan does not say how the two test results combine into one visual offset. (3) SKScene.update's currentTime is the frame's start time, not when the frame is seen, so \"song time at update\" is already about two frames stale at display.",
+   "evidence": "SKScene.update(_:) docs: currentTime is \"The current system time\". UIUpdateInfo.estimatedPresentationTime (iOS 18+): \"an estimate for when current UI update changes become visible onscreen\". UIUpdateLink.wantsImmediatePresentation docs say opting in makes the frame present \"one frame duration sooner\", which implies at least one extra frame by default. CADisplayLink.targetTimestamp: \"when the next frame displays\". Forum thread 736327 (single developer, unverified) reports about two frames (33 ms) input-to-draw on a 60 Hz iPhone and one 120 Hz frame on iPhone 14 Pro. Literature search: \"synchronization of finger taps with periodically flashing visual stimuli is known to be much more variable than synchronization with an auditory metronome\". Frame arithmetic: 1000/60 = 16.7 ms, 1000/120 = 8.3 ms. The exact pipeline depth for a SpriteKit view inside a Messages extension is not documented, hence medium confidence.",
+   "recommendation": "Change step 3 to: notes are drawn at t_song(presentationTime) + visualTrim, where presentationTime is UIUpdateInfo.current(for: view).estimatedPresentationTime on iOS 18 and later, otherwise the latest CADisplayLink.targetTimestamp plus one measured frame interval (a display link kept alongside the SKView supplies it). Remove the flash-tap test from P2.5. Keep a visual trim slider (+/-50 ms, default 0) with a live preview: click track with scrolling notes and the instruction \"slide until the note crosses the line on the click\". Store only the trim. The debug HUD shows the measured frame interval. Add the capture test below to S3 and to the Phase 2 gate.",
+   "confidence": "medium",
+   "verifyOnDevice": true,
+   "deviceTest": "Autoplay the click track with a full-width strike-line flash on every note and an audible tick scheduled at each note's sample time (AUD-14). Film the screen and speaker with a second iPhone at 240 fps. With trim 0, flash and tick must coincide within +/-2 video frames (about +/-8 ms) at 120 Hz and again at 60 Hz (turn on Low Power Mode).",
+   "sources": [
+    "https://developer.apple.com/documentation/uikit/uiupdateinfo/estimatedpresentationtime",
+    "https://developer.apple.com/documentation/uikit/uiupdatelink/wantsimmediatepresentation",
+    "https://developer.apple.com/documentation/spritekit/skscene/update(_:)",
+    "https://developer.apple.com/documentation/quartzcore/cadisplaylink/targettimestamp",
+    "https://developer.apple.com/forums/thread/736327"
+   ]
+  },
+  {
+   "id": "AUD-8",
+   "title": "Timestamp-based judging plus a per-frame miss sweep can turn a valid late-delivered touch into a miss",
+   "severity": "minor",
+   "kind": "design-flaw",
+   "planRefs": [
+    "4.3 (miss rule)",
+    "7.3 step 4",
+    "7.4 (Touch to judgement: same frame)",
+    "Phase 1 P1.3 (miss sweep)",
+    "Phase 3 P3.3",
+    "11 (Determinism row)"
+   ],
+   "planSays": "\"Each touch is judged at the song time of its hardware timestamp, not the frame that processed it\" and \"A note still unhit 130 ms after its time becomes a Miss.\"",
+   "problem": "Judging by timestamp means input arrives from the past. Touches reach the app about once per display frame, later after a main-thread hitch. If the frame's miss sweep (driven by current song time) runs before a pending touch is delivered, a touch whose timestamp is inside the window finds its note already marked Miss and becomes a ghost tap: a false miss, a streak reset and a stem duck. Example: touch stamped at note +125 ms, delivered 8 to 17 ms later, after the +130 ms sweep. The same undefined ordering makes the planned record-and-replay determinism test ambiguous. The plan also does not say that input must come from UIKit touch callbacks; SwiftUI gestures do not expose the hardware timestamp, and a view receives only one touch unless isMultipleTouchEnabled is set, which chords need.",
+   "evidence": "Reasoning from the plan's own rules. Frame intervals: 16.7 ms at 60 Hz, 8.3 ms at 120 Hz. UITouch.timestamp docs: \"the time, in seconds since system startup, that the touch originated or was last changed\". UIView.isMultipleTouchEnabled docs: \"The default value of this property is false.\"",
+   "recommendation": "Define the ordering in RiffCore: GameSession.advance(inputs:to:) takes inputs sorted by timestamp, applies every input with timestamp at or before the target song time first, then sweeps misses only for notes with time + window < songTime - inputGrace, with inputGrace = 2 frame intervals (config value, 34 ms at 60 Hz). Miss feedback appears at most 34 ms later; scores are unchanged. InputController queues UITouch began/ended events from UIKit handlers on the SpriteKit view (set isMultipleTouchEnabled = true in didMove(to:)) and the scene's update drains the queue before advancing. Add a golden test: a touch at +125 ms delivered after a 150 ms stall is judged Good, not Miss. Diagnostics logs delivery delay (CACurrentMediaTime() - touch.timestamp) at p50 and p99.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "https://developer.apple.com/documentation/uikit/uitouch/timestamp",
+    "https://developer.apple.com/documentation/uikit/uiview/ismultipletouchenabled"
+   ]
+  },
+  {
+   "id": "AUD-9",
+   "title": "Pause, resume, interruption and route-change mechanics are named but not specified",
+   "severity": "minor",
+   "kind": "gap",
+   "planRefs": [
+    "4.7",
+    "7.3 step 6",
+    "Phase 2 P2.1, P2.2",
+    "Phase 4 P4.5 (collapse mid-song)"
+   ],
+   "planSays": "\"Collapsing the view, a call, Siri or leaving Messages pauses at once. Resume shows a 3-beat countdown and restarts audio in sync.\" \"Pause and resume re-anchor T0.\"",
+   "problem": "The details that decide whether \"in sync\" holds are missing. (1) The pause triggers omit route loss and hardware format change: the engine stops itself on a sample-rate or channel-count change, and since iOS 17 a route disconnect interrupts the session by default. Alarms, host-app resign-active (Control Center, app switcher) and media-services reset are also absent. (2) No method is given for restarting at a position; relying on pause()/play() after the engine has stopped is fragile. (3) Deactivating the session while the engine runs returns isBusy. (4) A suspended process receives its interruption notice only after it runs again, and Messages may terminate the extension while collapsed or backgrounded, so the paused run may not exist on return. (5) A 3-beat countdown is 1.0 s at 180 BPM, shorter than a Bluetooth link may need to restart cleanly. (6) iOS 27 adds session lifecycle notifications that Apple recommends for new code; iOS 17 to 26 need the legacy one.",
+   "evidence": "AVAudioEngineConfigurationChangeNotification: \"the audio engine stops, uninitializes itself, and issues this notification. The nodes remain in an attached and connected state\". prefersInterruptionOnRouteDisconnect (iOS 17+): \"The default value is true\". interruptionNotification: \"the system deactivates an app's audio session when it suspends the app process ... This notification is necessarily delayed in time\". Handling audio interruptions: \"In iOS 27 ... AVAudioSession posts a set of life-cycle notifications ... Adopt these notifications for new code\". ExtAudioFileSeek: a subsequent read \"returns samples from precisely this location, even if it is located in the middle of a packet\" (sample-accurate restart from AAC is feasible). AVAudioPlayerNode.stop(): \"returns the player timeline to sample time 0\". 3 beats at 180 BPM = 1.0 s, at 128 BPM = 1.41 s. Forum thread 679274 describes Bluetooth start-up behaviour. Engine and player state after an interruption inside an extension is not documented.",
+   "recommendation": "Specify one path, suspendRun(reason), called from: willTransition(to: .compact), willResignActive(with:), NSExtensionHostWillResignActive, interruption began (legacy) or didBecomeInactive (iOS 27, under #available), routeChange, AVAudioEngineConfigurationChange, mediaServicesWereReset, and the clock stall rule from AUD-2. It records p = current heard song time, stops both players, stops the engine, then setActive(false, .notifyOthersOnDeactivation). Resume only on a user tap: setActive(true); engine.start(); re-read L and pick the offset for the current route; for each stem scheduleSegment(file, startingFrame: round(p x fileSampleRate), frameCount: remaining, at: nil); prepare; start both with one AVAudioTime at now + max(3 beats, 1.5 s); set the clock's segmentStartSec = p. Countdown ticks are PCM buffers scheduled on a third player against the same anchor, not UI timers. State in 4.7 that a run lost to process termination is discarded (\"Run interrupted, play again\") and nothing is persisted mid-run.",
+   "confidence": "medium",
+   "verifyOnDevice": true,
+   "deviceTest": "Mid-song on a real iPhone: remove AirPods; plug in a wired adapter; receive a call (banner style and full screen); invoke Siri; let an alarm fire; collapse to compact; switch apps for 30 s and return. Each must reach the pause screen within about 200 ms with no misses scored during silence, and after resume the AUD-2 probe shows clock error under 2 ms and the assist tick still lands on the notes.",
+   "sources": [
+    "https://developer.apple.com/documentation/avfaudio/avaudioengineconfigurationchangenotification",
+    "https://developer.apple.com/documentation/avfaudio/avaudiosession/prefersinterruptiononroutedisconnect",
+    "https://developer.apple.com/documentation/avfaudio/avaudiosession/interruptionnotification",
+    "https://developer.apple.com/documentation/avfaudio/handling-audio-interruptions",
+    "https://developer.apple.com/documentation/audiotoolbox/extaudiofileseek(_:_:)",
+    "https://developer.apple.com/documentation/foundation/nsnotification/name-swift.struct/nsextensionhostwillresignactive"
+   ]
+  },
+  {
+   "id": "AUD-10",
+   "title": "The iOS 27 SDK deprecates the core calls Phase 2 depends on; replacements exist only on iOS 27",
+   "severity": "minor",
+   "kind": "risk",
+   "planRefs": [
+    "7.1 (Audio row; Minimum iOS 17.0)",
+    "Phase 2 P2.1, P2.2",
+    "4.8 (haptic)",
+    "12 (current Xcode)"
+   ],
+   "planSays": "\"AVAudioEngine, one player node per stem\", \"Synchronized start at a host time\", minimum iOS 17.0, built with \"current Xcode\".",
+   "problem": "Built against the iOS 27 SDK, the plan's audio code hits deprecations on its central calls, and the replacements are throwing methods available only from iOS 27, so a 17.0 deployment target needs both paths. A project configured to treat warnings as errors will not build. The older non-throwing calls signal misuse (for example starting a player while the engine is not running) with Objective-C exceptions that Swift cannot catch, which would crash the extension during the resume and interruption flows.",
+   "evidence": "Apple documentation JSON, checked 2026-11-14: AVAudioPlayerNode.play(at:) and play() have deprecatedAt 27.0 on iOS; playAudio(at:) (\"func playAudio(at when: AVAudioTime?) throws\") and playAudio() are introduced in iOS 27.0. AVAudioEngine.connect(_:to:format:) deprecatedAt 27.0; connectNode(_:to:format:) throws, iOS 27.0+. AVAudioNode.installTap(onBus:bufferSize:format:block:) is marked deprecated. UIImpactFeedbackGenerator.init(style:) deprecatedAt 27.0; init(style:view:) is iOS 17.5+. AVAudioSession.didBecomeInactiveNotification, resumptionRecommendationNotification and activate(options:) are iOS 27.0+; on iOS the legacy interruptionNotification is not yet marked deprecated (only on visionOS 27), but Apple's article says later releases will deprecate it.",
+   "recommendation": "Add RiffMessages/Audio/AudioCompat.swift with small throwing wrappers: startPlayer(_:at:) and connect(_:to:format:) use the iOS 27 API under if #available(iOS 27, *), otherwise the old call guarded by an engine.isRunning check that throws a Swift error instead of reaching the exception. Haptics use init(style:view:) on 17.5+ and init(style:) below. Observe the iOS 27 lifecycle notifications under #available and the legacy notification otherwise. Do not use installTap for the clock. In project.yml do not enable warnings-as-errors for deprecations. Record this in docs/DECISIONS.md.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "https://developer.apple.com/documentation/avfaudio/avaudioplayernode/play(at:)",
+    "https://developer.apple.com/documentation/avfaudio/avaudioplayernode/playaudio(at:)",
+    "https://developer.apple.com/documentation/avfaudio/avaudioengine/connectnode(_:to:format:)",
+    "https://developer.apple.com/documentation/uikit/uiimpactfeedbackgenerator/init(style:view:)",
+    "https://developer.apple.com/documentation/avfaudio/avaudiosession/didbecomeinactivenotification",
+    "https://developer.apple.com/documentation/avfaudio/handling-audio-interruptions"
+   ]
+  },
+  {
+   "id": "AUD-11",
+   "title": "Stem and chart alignment depends on one specific AAC encoder path, with no check; the timing test asset should not be AAC at all",
+   "severity": "minor",
+   "kind": "risk",
+   "planRefs": [
+    "8.2",
+    "8.5",
+    "Phase 5 P5.1, P5.2",
+    "Appendix B (stems, audioOffsetMs)"
+   ],
+   "planSays": "\"WAV at 44.1 or 48 kHz ... all the same length and start point\"; \"Encoded to AAC (.m4a) on the Mac with afconvert\"; 8.5: \"Placeholder content I can make now: Click track\".",
+   "problem": "(1) AAC files start with priming frames. Apple's reader removes them as the file declares, and assumes 2112 samples when the file does not say. A stem encoded by anything other than the planned afconvert step (the sandbox, which has no afconvert, or a composer's export) can therefore decode shifted against the other stem and the chart by an encoder-dependent amount; a 1024-sample encoder delay read as 2112 is 1088 samples, 24.7 ms at 44.1 kHz or 22.7 ms at 48 kHz. Nothing in chartcheck or the tests would catch it. (2) The click track is the reference for every timing test, yet it is generated where afconvert cannot run, so it would be either PCM or encoded by a different encoder. (3) \"44.1 or 48 kHz\" lets two stems of one song differ in rate, and nothing asserts equal rate and frame count.",
+   "evidence": "Apple TN2258: \"With ExtAudioFile, priming and remainder values are read from the file (if present) and those samples are removed from the decoded bitstream automatically on behalf of the client. If these values are not present in the file, the default values are used\" and \"The default setting for AAC priming is 2112 samples\"; \"The encoding delay for an AAC encoder is implementation dependent.\" Computed: (2112 - 1024)/44100 = 24.7 ms; /48000 = 22.7 ms. That AVAudioFile reads through ExtAudioFile, and the 1024-sample figure for a non-Apple encoder, are from memory and not verified here. AVAudioPlayerNode docs: \"It's preferable to configure the node's output sample rate to match that of the files, and to use a mixer to perform the rate conversion.\"",
+   "recommendation": "In 8.2: all shipped audio is 48 kHz stereo AAC-LC (no HE-AAC), produced only by a scripted Mac step, tools/encode_audio.sh, wrapping afconvert. Add a macOS test (or a chartcheck step run on the Mac) that opens each .m4a with AVAudioFile and asserts: both stems have the same sample rate and identical length equal to the source WAV frame count, and the cross-correlation peak against the source WAV is at lag 0 (+/-1 sample). The click track and calibration clicks are synthesized into AVAudioPCMBuffers at run time (or shipped as mono 48 kHz 16-bit PCM, about 5.8 MB per minute, test builds only), never AAC. Connect each player to the mixer with file.processingFormat.",
+   "confidence": "medium",
+   "verifyOnDevice": false,
+   "sources": [
+    "https://developer.apple.com/library/archive/technotes/tn2258/_index.html",
+    "https://developer.apple.com/documentation/avfaudio/avaudioplayernode"
+   ]
+  },
+  {
+   "id": "AUD-12",
+   "title": "Reactive feedback (miss duck, tap-click, haptic) is specified without regard to output latency",
+   "severity": "minor",
+   "kind": "design-flaw",
+   "planRefs": [
+    "4.4",
+    "4.8",
+    "Phase 2 P2.4"
+   ],
+   "planSays": "\"A miss ducks the instrument stem for about 300 ms\"; \"an optional tap-click helps in practice\"; \"A light haptic on Perfect, on by default\".",
+   "problem": "These react to events, so they cannot be scheduled ahead: the player hears them at decision time plus up to one I/O buffer plus L. A miss is only known 130 ms after the note, so the duck is heard roughly 150 to 190 ms after the missed note on the speaker and 290 to 350 ms after it on AirPods. A fixed 300 ms duck then covers the next 2 to 3 notes at 7 to 10 notes per second, muting notes the player hit. A tap-click on Bluetooth arrives 160 to 220 ms after the tap, which is a misleading timing cue in a mode meant for practice. The haptic only has low latency if the generator was prepared in advance, and the Taptic Engine goes idle after each trigger.",
+   "evidence": "Computed: 130 ms + L(160..220 ms) = 290..350 ms; 0.3 s x 7 notes/s = 2.1 notes, x 10 = 3 notes. UIFeedbackGenerator.prepare() docs: \"Calling prepare() and then immediately triggering feedback (without any time in between) does not improve latency\" and \"After feedback is triggered, the Taptic Engine returns to its idle state. If you might trigger additional feedback within the next few seconds, immediately call prepare()\".",
+   "recommendation": "Duck rule in 4.8 and P2.4: on a miss, ramp the stem to about 15% gain over 15 ms and hold until the next successful hit on any lane (minimum 120 ms, maximum 600 ms), then ramp back over 30 ms. Tap-click: offered only on built-in and wired routes when L + ioBufferDuration is under 40 ms; request a 5 ms I/O buffer while it is enabled. Haptic: one generator created with the game view, prepare() at song start and again immediately after each impact, at most one impact per 60 ms.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "https://developer.apple.com/documentation/uikit/uifeedbackgenerator/prepare()"
+   ]
+  },
+  {
+   "id": "AUD-13",
+   "title": "Reading the host clock with mach_absolute_time or systemUptime requires a privacy-manifest entry",
+   "severity": "minor",
+   "kind": "gap",
+   "planRefs": [
+    "7.3",
+    "Phase 0 P0.2",
+    "Phase 8 P8.2"
+   ],
+   "planSays": "P8.2: \"Privacy manifest, a 'Data Not Collected' privacy label and the age rating.\" The timing model needs the current host time every frame.",
+   "problem": "The obvious ways to read \"now\" on the host timebase, mach_absolute_time() and ProcessInfo.systemUptime, are required-reason APIs. An upload whose binary uses them without a declared reason is flagged by App Store Connect. The manifest must sit in the bundle whose executable makes the call (the extension), and leaving it to Phase 8 means TestFlight uploads in Phase S trip on it first.",
+   "evidence": "Apple, Describing use of required reason API: \"apps that don't describe their use of required reason API in their privacy manifest file aren't accepted by App Store Connect\". NSPrivacyAccessedAPIType reference, category NSPrivacyAccessedAPICategorySystemBootTime lists exactly systemUptime and mach_absolute_time(); reason 35F9.1 covers measuring \"the amount of time that has elapsed between events that occurred within the app\". CACurrentMediaTime() is documented as \"derived by calling mach_absolute_time()\" and is not on the list.",
+   "recommendation": "In the clock code use CACurrentMediaTime() with AVAudioTime.hostTime(forSeconds:) and AVAudioTime.seconds(forHostTime:); do not call mach_absolute_time or systemUptime directly. If either is used anyway, add NSPrivacyAccessedAPICategorySystemBootTime with reason 35F9.1 to the extension's PrivacyInfo.xcprivacy. Create the privacy manifest in P0.2 so the first TestFlight build already carries it.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api",
+    "https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype",
+    "https://developer.apple.com/documentation/quartzcore/cacurrentmediatime()"
+   ]
+  },
+  {
+   "id": "AUD-14",
+   "title": "Autoplay cannot check chart sync \"by ear\": nothing audible marks the notes",
+   "severity": "minor",
+   "kind": "gap",
+   "planRefs": [
+    "8.3 step 5",
+    "Phase 3 P3.6",
+    "Phase 5 P5.4",
+    "4.8 (no hit sounds)"
+   ],
+   "planSays": "\"Autoplay in a debug build plays the chart perfectly against the audio to check sync by eye and ear.\" 4.8: \"No hit sounds by default\".",
+   "problem": "Autoplay makes no sound of its own, so there is nothing to compare by ear. By eye it compares the chart with the display path and whatever visual offset is set, not with the audio. A tap-click fired from the game loop is quantized to frames and I/O buffers, so it cannot serve as a precise marker either. Chart-to-audio offset errors of 10 to 30 ms would pass this QA step.",
+   "evidence": "Plan text as quoted. AVAudioPlayerNode docs: scheduling methods take a `when` time and \"If the when parameter is a sample time, the parameter interprets it as such\", so a tick can be placed on an exact sample of the player timeline.",
+   "recommendation": "Add an assist tick to P2.1 and P3.6: a third player node schedules a short PCM tick at each note's exact sample time on the same start anchor as the stems (scheduleBuffer(_:at:) with a sample-time AVAudioTime), independent of display and touch. Chart QA in 8.3 step 5 and P5.4 becomes \"the tick lands on the instrument's attack\". Also add an offline option to chartcheck: mix ticks into the backing WAV at chart times and write a preview file, so charts can be checked on any computer before a device build. The same tick is the audio marker for the capture test in AUD-7.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "https://developer.apple.com/documentation/avfaudio/avaudioplayernode"
+   ]
+  }
+ ],
+ "confirmedSound": [
+  "One timebase for touches, frames and audio: UITouch.timestamp is seconds since system startup (same definition as ProcessInfo.systemUptime), CACurrentMediaTime() is derived from mach_absolute_time(), and AVAudioTime host time uses mach_absolute_time(); AVAudioTime.seconds(forHostTime:) and hostTime(forSeconds:) convert between them. Step 4 of 7.3 is feasible as written.",
+  "Judging each touch at its hardware timestamp instead of the frame that processed it is the right design and does remove up to one frame of error (8.3 ms at 120 Hz, 16.7 ms at 60 Hz).",
+  "Two AVAudioPlayerNodes on one AVAudioEngine started with the same AVAudioTime give a sample-aligned start of backing and stem, and a host-time-only AVAudioTime is honoured (docs: a host time is used when the sample time is invalid and the engine renders to a device).",
+  "Streaming from disk with scheduleFile/scheduleSegment is the right memory choice: decoding two 90 s stereo stems to float PCM would take 63.5 MB at 44.1 kHz (69.1 MB at 48 kHz), 85 to 92 MB for 120 s songs.",
+  "AAC .m4a stems produced by afconvert can be sample-aligned at frame 0: Apple TN2258 says ExtAudioFile reads priming and remainder values from the file and removes those samples automatically; ExtAudioFileSeek is documented as sample-accurate even mid-packet, so resuming from an arbitrary frame is feasible.",
+  "The two-offset model is right in structure: the audio offset shifts song time for both judging and drawing, the visual offset shifts drawing only, and the sign of L and delta in the formula is correct once L is defined as in AUD-3.",
+  "A tap-along audio test measures the quantity the judge needs (touch timestamp against heard audio, including touch-sensor latency and the player's own bias), so no separate touch-latency term is required.",
+  "Route-aware design is justified by Apple's own docs: AVAudioSession.outputLatency warns that AirPlay can add a 2-second delay, and latency is reported per route.",
+  "No real-time render-thread code is needed for this design (player nodes only), which keeps the Swift 5 mode / strict-concurrency concern in 7.1 small for the audio layer.",
+  "A lead-in of at least 2 s is enough for engine start, decoder preparation and scheduling, provided the engine is started at the beginning of the lead-in and not at T0.",
+  "Audio size fits the download budget: 5 songs x 2 stems x 120 s at 160 kbps is 24 MB, against the 60 MB target.",
+  "The plan correctly flags haptics inside the extension as verify-on-device; nothing in the docs contradicts using UIImpactFeedbackGenerator there."
+ ],
+ "openQuestions": [
+  "Can a Messages extension process activate a non-mixable .playback session and keep an AVAudioEngine running for 90 s, and what does Messages do to it on collapse to compact, app switch and lock? No Apple documentation or forum report found either way; this is the first thing S1 must answer.",
+  "Decision for the owner: should game audio play when the phone's Ring/Silent switch is on silent (.playback, recommended), or respect silent and block Play with a prompt?",
+  "What I/O buffer duration does the extension actually get, and is a 5 ms preference honoured inside Messages?",
+  "After play(at:) with a future time, does playerTime(forNodeTime:) return a non-nil, negative time before the start? The lead-in clock in AUD-2 falls back to the requested T0 if not.",
+  "What is the real host-clock versus sample-clock skew in ppm on speaker, wired adapter and AirPods? It decides how much smoothing the clock filter needs.",
+  "What is the median residual offset on the built-in speaker across two or more iPhone models when L is taken from the system? If within about +/-15 ms, first-run calibration can be optional on built-in routes.",
+  "Does estimatedPresentationTime (iOS 18+) reflect reality for a SpriteKit view hosted in SwiftUI inside the extension, and does the extension get 120 Hz at all (already S4)?",
+  "Decision for the owner: may runs on wireless audio use slow in-run adaptive offset in duels, given that Bluetooth latency appears to move by tens of ms within a session?",
+  "Does the engine keep scheduled segments and player state across a session interruption inside the extension? The recommended resume path (stop, reschedule from frame, restart) does not depend on the answer, but the test should record it.",
+  "iOS Game Mode lowers AirPods latency for games; it most likely does not engage for a Messages extension (the foreground app is Messages). Not verified."
+ ]
+}

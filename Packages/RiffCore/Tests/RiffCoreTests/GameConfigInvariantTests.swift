@@ -13,7 +13,8 @@ struct GameConfigInvariantTests {
         #expect(judging.great.windowMicros < judging.good.windowMicros)
     }
 
-    @Test("Window scaling never narrows a window and always lands on a whole microsecond", arguments: Difficulty.allCases)
+    @Test(
+        "Window scaling never narrows a window and always lands on a whole microsecond", arguments: Difficulty.allCases)
     func windowScaleIsExact(difficulty: Difficulty) {
         let judging = config.judging
         let scale = Int64(judging.windowScalePercent[difficulty])
@@ -83,7 +84,8 @@ struct GameConfigInvariantTests {
         let highway = config.highway
         #expect(highway.minScrollTimeMicros > 0)
         #expect(highway.minScrollTimeMicros < highway.maxScrollTimeMicros)
-        #expect((highway.minScrollTimeMicros...highway.maxScrollTimeMicros).contains(highway.scrollTimeMicros[difficulty]))
+        #expect(
+            (highway.minScrollTimeMicros...highway.maxScrollTimeMicros).contains(highway.scrollTimeMicros[difficulty]))
     }
 
     @Test("Highway geometry fits the screen and the lanes split evenly between two thumbs")
@@ -105,8 +107,10 @@ struct GameConfigInvariantTests {
         #expect(rule.minSameLaneGapMicros > 0)
         #expect(rule.shortestHold.numerator > 0)
         #expect(rule.shortestHold.denominator > 0)
-        // The gap rule must leave room for a note to be judged before the next one on its lane arrives.
-        #expect(rule.minSameLaneGapMicros >= config.judging.perfect.windowMicros * 2)
+        // One touch must never be within Perfect of two notes on the same lane.
+        let perfectWindow =
+            config.judging.perfect.windowMicros * Int64(config.judging.windowScalePercent[difficulty]) / 100
+        #expect(rule.minSameLaneGapMicros >= perfectWindow * 2)
     }
 
     @Test("Chart rules get denser, tighter and shorter-held as difficulty rises")

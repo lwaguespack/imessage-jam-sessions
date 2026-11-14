@@ -1,0 +1,467 @@
+{
+ "findings": [
+  {
+   "id": "MATCH-1",
+   "title": "Concurrent turns on one session bubble silently drop scores; the plan has no merge rule and no local match ledger",
+   "severity": "blocker",
+   "kind": "design-flaw",
+   "planRefs": [
+    "3 (row 'No live connection between players')",
+    "5.1",
+    "5.2",
+    "5.4",
+    "5.5",
+    "P1.8",
+    "P4.4",
+    "P4.5",
+    "Phase 4 done-when",
+    "Appendix C"
+   ],
+   "planSays": "'an MSSession makes every turn update one bubble'. Every turn re-sends the whole match state ('e: submitted runs this round') built from the bubble the player tapped. P4.5 names 'an old bubble tapped after newer ones' as an edge case but gives no rule. Phase 4 is done after 'one 3-person group round'.",
+   "problem": "Each submission is a full-state overwrite computed from the state the player loaded before a 60-90 s run. In a group, B and C both open state {A}, play, and send {A,B} and {A,C}. Messages keeps only the later message of a session, so one score vanishes from the bubble; the next player builds on the survivor and the loss becomes permanent. Arrival order is not guaranteed, so devices can disagree about which state survived. The dropped player's device believes it has submitted ('one submitted score per player per round') while the bubble says it has not; section 5.4 has no screen for that state. The extension only sees messages through selectedMessage or didReceive while it is active, so nothing repairs the fork. The same mechanism breaks 'starter closes while someone is submitting' and a stale selectedMessage while the app is open. Several friends answering a fresh challenge within the same two minutes is the normal usage pattern of a group round, and the Phase 4 gate (one round, played in sequence) would pass with the bug present.",
+   "evidence": "Apple, didReceive(_:conversation:): 'There is an inherent race condition when multiple participants send messages using the same session object. You cannot guarantee the order in which the messages are received. To ensure that your app always has the latest data, save your data to a server (for example, using CloudKit) and have your messages just carry an ID for that data.' Same page: the method is for 'messages that arrive while your extension is active'. MSSession: 'If a later message is sent using the same session, the previous message is removed from the transcript.' selectedMessage: 'the selected message might not contain the most current data. The selected message is not updated when you receive new messages.' Apple's forum answer to exactly this group scenario (thread 54536) is the WWDC16-224 advice to store state in the cloud.",
+   "recommendation": "Keep 'no server', but make MatchState a state-based CRDT in RiffCore and specify merge(a,b) in section 5: same match id required; higher round r wins; same r and same round descriptor: entries = union keyed by player id, duplicate player keeps the entry with the smaller t (then byte order), closed = a.closed OR b.closed, and a closed state freezes its entry set. Add a per-device ledger file (matches.json: per match id the merged state of everything this device has decoded, plus own submission status and settled awards). Rules: (1) on every activation and every didReceive, state = merge(ledger, decoded bubble) and the UI renders the merged state, never the raw bubble; (2) the outgoing payload is composed at send time from the merged state, not from the bubble tapped before the run; (3) if the merged state holds entries the current bubble lacks (above all the local player's), show 'Your score isn't on the board yet - Re-post' which re-inserts the merged state; (4) add that row to the 5.4 table. In P1.8/P1.9 add property tests (merge is commutative, associative, idempotent) and an N-device conversation simulator that reorders, drops and duplicates messages and asserts that all devices converge with no entry lost. Extend the Phase 4 gate with a forced race.",
+   "confidence": "high",
+   "verifyOnDevice": true,
+   "deviceTest": "Three devices in one group chat. A starts a round. B and C both open the bubble, both finish a run, and both tap Send within a few seconds (repeat with C in airplane mode during B's send, then reconnect). On each of the three devices record: which bubble remains, whether the other was replaced by its summary text, the URL of selectedMessage after tapping the survivor, and whether didReceive fired for the other player's message while the extension was open. Repeat with 'starter closes' racing 'member submits'.",
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msmessagesappviewcontroller/didreceive(_:conversation:)",
+    "https://developer.apple.com/documentation/messages/mssession",
+    "https://developer.apple.com/documentation/messages/msconversation/selectedmessage",
+    "https://developer.apple.com/forums/thread/54536"
+   ]
+  },
+  {
+   "id": "MATCH-2",
+   "title": "Player id taken from the participant UUID: those UUIDs are device-scoped and change when the extension is toggled or reinstalled",
+   "severity": "major",
+   "kind": "factual-error",
+   "planRefs": [
+    "3 (rows 'No access to contact names', 'Participant IDs are opaque UUIDs')",
+    "5.5",
+    "6.4 ('Series records per friend, keyed by conversation participant')",
+    "Appendix C (by, sr, Entry.p)",
+    "S2",
+    "13 (participant-ID risk row)"
+   ],
+   "planSays": "Entry.p is 'first 8 hex characters of the participant UUID'; 'by' is the 'starter's player id (can close a round)'; 'sr' is 'series wins by player id'; scoping is to be 'verified in the Phase 4 spike'.",
+   "problem": "Apple's documentation already answers the scoping question, and the answer breaks several uses. A participant's UUID on device X is unrelated to the UUID the same person has on any other device, so a payload id can never be matched against remoteParticipantIdentifiers or senderParticipantIdentifier on a receiving device; it only works as a self-chosen token that the same device recognises again. Consequences: (1) the same person on iPhone and iPad (iPad is in v1 scope and in the test matrix) has two ids: the iPad shows 'Your turn' for the player's own challenge, the player can complete a duel against themselves, submit twice in a group round, and the starter cannot close the round from the other device; (2) the id changes when the extension is disabled and re-enabled in Messages or the app is reinstalled, so a mid-series player becomes a stranger, 'sr' gains a third key in a duel and the '3-2' tally is orphaned; (3) 'series records keyed by conversation participant' invites keying by an id that cannot be related to the payload ids; (4) if the local UUID is the same in every conversation (undocumented), its prefix is a stable device identifier published into every chat and, with the query-string fallback URL, to the web host. Also a plan inconsistency: the spike that checks ids is Phase S (S2), not Phase 4.",
+   "evidence": "localParticipantIdentifier: 'This UUID is scoped to this device. It remains stable as long as the extension is enabled. If the extension is disabled and reenabled, or if the containing app is removed and reinstalled, the UUID for the local participant changes.' remoteParticipantIdentifiers: 'These UUIDs are scoped to this device.' senderParticipantIdentifier: 'Each device participating in the conversation will have a different UUID for the message's sender.' 32-bit truncation itself is fine: collision chance among 32 players is 1.2e-7 (computed).",
+   "recommendation": "Stop deriving the payload id from Messages. Generate a random 6-byte playerId once, store it in profile.json (and in iCloud key-value storage if sync is adopted, see MATCH-9) and use it for Entry.p, by and sr. Use MSConversation UUIDs only for device-local purposes: the caption name placeholder, the roster count, a local head-to-head key for 1:1 chats, and a 'this message was sent by me' guard (selectedMessage.senderParticipantIdentifier == conversation.localParticipantIdentifier). When that guard is true but the newest entry's id is not the local playerId, alias that id to the local player for this match instead of offering 'Your turn'. A completed duel whose two entries are both foreign shows a spectator result. Rewrite the constraint row in section 3 to state the documented scoping, and move the id checks into S2 with the tests below.",
+   "confidence": "high",
+   "verifyOnDevice": true,
+   "deviceTest": "In the S2 diagnostics log, on two iPhones and an iPad signed into one of the two Apple IDs: (a) localParticipantIdentifier in two different conversations on the same device; (b) for a message sent by this device, and for a message sent by the same Apple ID's other device, whether senderParticipantIdentifier equals localParticipantIdentifier; (c) all identifiers before and after switching the app off and on in the Messages app list, and after delete and reinstall; (d) whether remoteParticipantIdentifiers for the same contact match between a 1:1 chat and a group.",
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msconversation/localparticipantidentifier",
+    "https://developer.apple.com/documentation/messages/msconversation/remoteparticipantidentifiers",
+    "https://developer.apple.com/documentation/messages/msmessage/senderparticipantidentifier"
+   ]
+  },
+  {
+   "id": "MATCH-3",
+   "title": "'Round completes when every member has submitted' cannot be decided: no roster in the payload, non-players never submit, membership changes",
+   "severity": "major",
+   "kind": "gap",
+   "planRefs": [
+    "5.1",
+    "5.2",
+    "5.3 ('2 of 5 played')",
+    "6.1 (podium XP)",
+    "P4.4",
+    "Appendix C (by, closed)"
+   ],
+   "planSays": "'A group round completes when every member has submitted or the starter closes it.' 'The starter can close the round early, which locks standings and awards podium XP.' The payload has no member count, roster or deadline.",
+   "problem": "Completion is computed by each device from its own participant count, which is not shared state. (1) Any member without the app, or who simply does not play, means 'every member has submitted' never happens; in a real group chat that is nearly every round, so podium XP depends entirely on the starter coming back to send a close message. (2) A starter who goes quiet, leaves the group, reinstalls or uses another device (MATCH-2) leaves the round open forever. (3) Members joining or leaving change the count per device, so devices disagree on whether the round is complete, and a late joiner can submit after others already treated the round as complete and took podium XP. (4) 'Who may close' is enforced only by the local UI: every copy of the app holds the same HMAC key and a receiver cannot map 'by' to a sender, so the rule is an honour system and the plan should say so.",
+   "evidence": "remoteParticipantIdentifiers is documented only as 'An array of UUIDs representing the remote participants in this conversation'; there is no API that tells which participants have the app. Appendix C contains no roster or deadline field. The HMAC key is 'compiled into the app' (5.5), so it authenticates the app, not a player.",
+   "recommendation": "Make finality an explicit, monotonic fact in the payload. Add n (member count snapshot taken by the starter, used for the 'k of n played' caption only) and dl (deadline, round start + 24 h [DECIDE]). A group round is final when closed is set or the local clock is past dl; the device that submits the n-th entry sets closed in the same message so no extra close message is needed. Entries with t after dl, or absent from a closed state, are rejected by merge. Podium XP and the Results screen key off 'final', never off a locally computed member count. Keep 'starter can close early' as a UI affordance and document that it is not cryptographically enforced. Add rows to 5.4 for 'round final, you never played' and 'deadline passed'.",
+   "confidence": "high",
+   "verifyOnDevice": true,
+   "deviceTest": "In a 3-person group where one member does not have the app, log remoteParticipantIdentifiers.count on the two devices that do; then add a fourth member and log it again on every device.",
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msconversation/remoteparticipantidentifiers"
+   ]
+  },
+  {
+   "id": "MATCH-4",
+   "title": "Duel-win and podium XP have no settlement rule: double-award on every open, and the first player can never see the completed round",
+   "severity": "major",
+   "kind": "gap",
+   "planRefs": [
+    "6.1 ('Duel and podium XP land when the round completes, on whichever device opens the final bubble')",
+    "6.1 order of operations",
+    "5.1 (Rematch)",
+    "7.5",
+    "P6.2",
+    "Appendix C",
+    "Appendix D"
+   ],
+   "planSays": "'Duel and podium XP land when the round completes, on whichever device opens the final bubble.' P6.2: 'XP awards on the results screen'. The payload carries only 'submitted runs this round' plus the series tally.",
+   "problem": "(1) Nothing records that a round's bonus has been paid, so every re-open of a final bubble can pay +75 again; records.json has no such structure and Appendix D has no schema for it. (2) The completed-round bubble may never be visible to the first player: B completes round r, taps Rematch, and sends round r+1; the session replaces the round-r bubble, the new payload contains only round r+1's entries, so A's device never sees round r's final state and cannot pay A's +75 or show A the result. (3) The 'order of operations' cannot apply to an award that lands on a later day: which streak bonus and featured multiplier apply to a deferred +75 is undefined. (4) The second player knows the result before sending; if the win bonus is paid on the results screen, it is paid even when the message is never sent or the draft is deleted. (5) In groups, standings can still change after a device has paid podium XP unless payment waits for a final round (MATCH-3).",
+   "evidence": "MSSession: 'If a later message is sent using the same session, the previous message is removed from the transcript.' didStartSending: 'It does not guarantee that the message will be successfully sent or delivered.' Appendix C comment on e: 'submitted runs this round'.",
+   "recommendation": "Specify settlement in section 6.1 and implement it in RiffCore: the ledger from MATCH-1 stores settled[(matchId, round)]; a device pays the local player's duel or podium bonus exactly once, the first time it observes a final state for that round containing the local player's entry. Add a previous-round summary to the duel payload (pr: round number, both scores, winner id, about 30 bytes) so the first player's device can show and settle round r from the round r+1 bubble. Deferred bonuses are flat XP with no streak or featured multiplier (state this next to the order of operations). The submitting player's own bonus is paid in didStartSending, not on the results screen. Add tests: open the same final bubble 3 times gives one award; rematch-before-open still settles round r.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "https://developer.apple.com/documentation/messages/mssession",
+    "https://developer.apple.com/documentation/messages/msmessagesappviewcontroller/didstartsending(_:conversation:)"
+   ]
+  },
+  {
+   "id": "MATCH-5",
+   "title": "Simultaneous rematch by both duel players creates two different 'round N+1' states with no resolution rule",
+   "severity": "major",
+   "kind": "gap",
+   "planRefs": [
+    "5.1",
+    "5.2 ('Rematch can come from either player')",
+    "P4.3",
+    "Appendix C (r, by, sr)"
+   ],
+   "planSays": "'Either player taps Rematch (same song or a new one) to start the next round in the same bubble.' 'It starts a new round number, and the series score carries over.'",
+   "problem": "After a close round both players see Results with a Rematch button. If both tap it, each plays (possibly a different song or difficulty) and sends a state with the same r, a different 'by', and one entry. One message replaces the other. Each device's local state says 'I have submitted round N+1' while the surviving bubble shows only the opponent's entry on a possibly different chart; with the 5.4 table as written both can land on Waiting, or one is asked to play a round it believes it already played. The plan defines no tie-break between competing rounds and no fate for the losing run.",
+   "evidence": "Reasoning from 5.1/5.2 and the session replacement semantics (MSSession doc). Same race class Apple warns about on the didReceive page.",
+   "recommendation": "Add to MatchRules.merge: two states with the same match id and r but different round descriptors (song, difficulty, chart hash, starter) are a conflict; the winner is the one whose first entry has the smaller t, then the smaller starter id. If both proposals are the same song, difficulty and chart, there is no conflict: union the two entries and the round is complete at once. The device whose proposal lost keeps the run as a personal best (run XP already paid, no duel bonus) and shows 'Sam's rematch on <song> got there first - play it'. Both proposals carry the same sr because sr is defined as the tally through round r-1 (state that definition in Appendix C). Add the case to the simulator tests and to P4.3.",
+   "confidence": "high",
+   "verifyOnDevice": false
+  },
+  {
+   "id": "MATCH-6",
+   "title": "Nickname limit of '16 characters' does not bound the payload: the '32 players inside 4 KB' claim fails and one nickname can make a round undecodable",
+   "severity": "major",
+   "kind": "factual-error",
+   "planRefs": [
+    "5.5",
+    "Appendix C (Entry.n 'nickname, max 16 characters'; 'a full 32-player round stays inside the 4 KB cap')",
+    "P1.9",
+    "11 (Payload row)",
+    "13 (payload size risk)"
+   ],
+   "planSays": "'nickname, max 16 characters'; 'A duel encodes to under 1 KB, and a full 32-player round stays inside the 4 KB cap'; decoding rejects 'anything over 4 KB'.",
+   "problem": "In Swift, a 16-'character' limit counts grapheme clusters, and one cluster can be arbitrarily many bytes (emoji joined sequences are 25-41 bytes; a letter with stacked combining marks is unbounded). The size claim holds for plain text but not for the limit as written, and because the payload is rejected above the cap, a single player with a decorated nickname makes the bubble unreadable for everyone ('Couldn't read this challenge'). The cap itself is ambiguous: 4 KB of what? The uncompressed JSON of a legitimate 32-entry round is already 3.7-5.6 KB, so a cap applied after inflating would reject valid rounds. The nickname is also untrusted text rendered into other people's score cards with no stated filtering (newlines, control and bidirectional-override characters).",
+   "evidence": "Recomputed with python3 zlib (raw deflate level 5, the format Apple's COMPRESSION_ZLIB produces), plan schema, random ids, 32 entries plus a 32-key sr, worst of 50 samples, base64url length: realistic names 1,791; 16 random ASCII 2,298; 16 emoji 3,134; 16 CJK 3,602; 16 joined-family emoji graphemes 6,011 (over the plan's cap and over Apple's 5,000-character URL limit). Duel: 371-531 (740 with the joined-emoji case). One grapheme with 200 combining marks is 401 bytes. Apple, MSMessage.url: 'the URL cannot be longer than 5,000 characters.'",
+   "recommendation": "Define the nickname limit as: NFC-normalised, at most 16 grapheme clusters AND at most 32 UTF-8 bytes (48 if 16 CJK characters must fit), no control, newline or bidirectional-override scalars; enforce it at input and again at decode (truncate or reject the entry, not the whole payload). Define the cap as 'whole URL at most 4,096 characters' and add a separate decoded-size cap (16 KB). Make the P1.9 size test adversarial: 32 entries, every nickname at the byte cap with incompressible content, every numeric field at its maximum, random ids. Make the encoder refuse to produce an over-cap payload so the sender gets the error, not the group.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msmessage/url",
+    "https://developer.apple.com/documentation/compression/compression_zlib"
+   ]
+  },
+  {
+   "id": "MATCH-7",
+   "title": "Web-fallback URL carries the whole match payload in the query string, so the web host receives nicknames, ids and scores; this conflicts with 'Data Not Collected'",
+   "severity": "major",
+   "kind": "risk",
+   "planRefs": [
+    "3 (row 'Recipients may not have the app yet')",
+    "5.5",
+    "7.5 ('No network, analytics or accounts in v1')",
+    "P8.2",
+    "14 (Fallback web domain)",
+    "Appendix C ('https://<domain>/m?p=<payload>')"
+   ],
+   "planSays": "'one query item of an https URL on a domain we control. That URL doubles as the web fallback'; P8.2: 'a \"Data Not Collected\" privacy label'.",
+   "problem": "When a participant selects the bubble on a Mac, Messages loads the URL in a browser; older systems and SMS recipients receive the URL as visible text. Every such open sends the full payload (every player's nickname, player id, score, level and play timestamps) to the fallback host together with the opener's IP address, and static hosts keep request logs including query strings. A nickname is a 'screen name' (Apple's User ID data type) and the rest is Gameplay Content; data retained by you or your host beyond serving the request is 'collected' under Apple's definition, so the planned label would be inaccurate, and the players whose data is sent are not the person who clicked. The long URL also shows as raw text on those clients (about 400 characters for a duel, up to about 3,600 for a large round).",
+   "evidence": "Apple, MSMessage.url: 'If the message is selected on macOS, the system loads the URL in a web browser.' MSMessageLiveLayout doc: template layouts serve 'devices that do not support iMessage apps (macOS, iOS 9 and earlier, and SMS devices)'. Apple privacy details: 'Collect refers to transmitting data off the device in a way that allows you and/or your third-party partners to access it for a period longer than what is necessary to service the transmitted request in real time'; User ID: 'Such as screen name, handle, account ID'; 'Data collected via web traffic must be declared'. Forum thread 62331: a developer sees 'an ugly http URL alongside the iMessage image' on Macs and older iOS; Apple's documentation engineer answers 'Use a \"data:...\" URI instead of an HTTP one.'",
+   "recommendation": "Never put the payload where a server can see it. Preferred: https://<domain>/m#<payload> (a fragment is not sent in the HTTP request) with a static page that says what the game is and links to the App Store; the page needs no payload at all. Alternative if fragments do not survive transport: a data: URL (permitted by the MSMessage.url documentation), which removes the domain decision and the web host entirely. Whichever is chosen, record in DECISIONS.md that the fallback host must not log or receive match data, and keep the label claim only on that basis.",
+   "confidence": "medium",
+   "verifyOnDevice": true,
+   "deviceTest": "In S2 send three session messages whose URLs are (a) https with ?p=, (b) https with #fragment, (c) data:. On the receiving iPhone log selectedMessage.url verbatim and confirm the fragment or data body is intact; click each bubble in Messages on a Mac and note what opens and what the server access log shows; note what an iPhone without the app shows on tap.",
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msmessage/url",
+    "https://developer.apple.com/documentation/messages/msmessagelivelayout",
+    "https://developer.apple.com/app-store/app-privacy-details/",
+    "https://developer.apple.com/forums/thread/62331"
+   ]
+  },
+  {
+   "id": "MATCH-8",
+   "title": "'Restart until you submit' lets the responder grind against a known target, and 'submitted' is never defined (draft in the input field, cancelled or failed sends)",
+   "severity": "major",
+   "kind": "design-flaw",
+   "planRefs": [
+    "4.7 ('Restarting is allowed until you submit; only the submitted run counts')",
+    "5.2 ('One submitted score per player per round; restarts before submitting are fine')",
+    "5.3 ('player taps Send. Nothing sends automatically')",
+    "5.4",
+    "6 ('a duel is always decided by the run itself')"
+   ],
+   "planSays": "'Restarting is allowed until you submit; only the submitted run counts for the round.'",
+   "problem": "The challenger plays blind; the responder sees the score to beat and may replay until it is beaten, then send. The finished run reaches the bubble only when the player taps Send in Messages, so a responder can also finish, look at the result, delete the draft and play again. The duel is then decided by patience, not by 'the run itself', and the tie-break 'whoever played first' does not offset it. Separately, 'submitted' has at least four distinct moments (run finished, message inserted, Send tapped, delivered) and the 5.4 table ('Open round, you've submitted') does not say which one counts. selectedMessage can be the player's own pending draft, a draft can be cancelled, and a send can fail, so the screen state can be wrong in each case.",
+   "evidence": "isPending: true 'when your app calls the insert(_:completionHandler:) method', used 'to determine whether the conversation's selectedMessage property refers to a message in the transcript (false) or to a message in the Messages app's input field (true)'. didCancelSending is called when 'the user subsequently deletes the message object'. didStartSending 'does not guarantee that the message will be successfully sent or delivered'. send(_:completionHandler:) exists and is allowed 'only in response to a user action'.",
+   "recommendation": "Raise a [DECIDE] before Phase 1 because it changes the payload and the ledger: (a) one counted attempt per round for the responder (the attempt is committed in the ledger when the song starts; restart is offered only in Practice and for the challenger's opening run), or (b) keep unlimited restarts but add an attempt count to Entry and print it on the card ('3rd try'). In both cases define the submission states in RiffCore (played, staged, sent, confirmed-in-bubble), drive them from insert, didStartSending, didCancelSending and 'own entry seen in a non-pending message', ignore pending messages when routing, and map each state to a 5.4 row. Consider sending with conversation.send from the 'Submit score' tap so that staging and sending are one user action.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msmessage/ispending",
+    "https://developer.apple.com/documentation/messages/msmessagesappviewcontroller/didcancelsending(_:conversation:)",
+    "https://developer.apple.com/documentation/messages/msmessagesappviewcontroller/didstartsending(_:conversation:)",
+    "https://developer.apple.com/documentation/messages/msconversation/send(_:completionhandler:)-9krz"
+   ]
+  },
+  {
+   "id": "MATCH-9",
+   "title": "Progress lives in one App Group container with no recovery path: app deletion, a new phone without restore, or iPhone versus iPad all lose or split it",
+   "severity": "major",
+   "kind": "risk",
+   "planRefs": [
+    "1 (assumption 'progression is stored on the device')",
+    "6.2 ('level 50 ... a long-term goal')",
+    "6.4",
+    "7.5",
+    "P6.1",
+    "13 (no matching risk row)",
+    "Appendix D"
+   ],
+   "planSays": "'Three Codable JSON files' in an App Group container; 'No network, analytics or accounts in v1'; level 50 is 'a long-term goal'.",
+   "problem": "Level 50 is roughly 525-685 runs (87-130 days at five runs a day, computed), yet all of it sits in one local file. Deleting the iMessage app removes it; a new phone set up without a backup restore starts at level 1; iPhone and iPad (both in v1 scope) hold separate XP, levels, unlocks and streaks, so the same person shows different levels on their cards depending on the device. The risk table has no row for this. The profile is modelled as mutable totals ('xp', 'level', 'streak'), which cannot be merged later without loss, so adding sync after launch would need a lossy migration. Read-modify-write on the three files is also unprotected if two instances of the extension run at once; atomic writes prevent corruption, not lost updates.",
+   "evidence": "Level totals recomputed: 142,100 XP at 207-272 XP per run. Apple forum thread 821222 (March-April 2026): a developer reports App Group containers recreated empty during ordinary app updates, mostly on iOS 26; Apple DTS replies that containers are 'expected' to persist, that no known issue matches, and recommends canary files to detect loss. NSUbiquitousKeyValueStore: 'store ... app-specific data in a person's iCloud account and share it among instances of your app running on all of the person's devices', 1 MB and 1,024 keys, requires the iCloud key-value store entitlement.",
+   "recommendation": "Add a [DECIDE] in section 14: sync the profile through iCloud key-value storage (no server of ours, the data stays in the player's iCloud, and it also carries the playerId from MATCH-2 across devices and reinstalls), or ship device-only and say so on the Profile screen. In either case make the stored model merge-safe now: XP as a per-install counter map (total = sum), unlocks as a grow-only set, bests and lifetime stats merged by max, level always derived from XP and never stored, streak merged by latest lastPlayed. Keep a last-known-good backup of profile.json and a canary file, and serialise all store access through one actor that re-reads before writing. Add the risk to section 13.",
+   "confidence": "medium",
+   "verifyOnDevice": true,
+   "deviceTest": "If sync is chosen: add the iCloud key-value entitlement to the extension target, write a value from the Messages extension on the iPhone, and confirm it appears in the extension on the iPad and after deleting and reinstalling the app.",
+   "sources": [
+    "https://developer.apple.com/documentation/foundation/nsubiquitouskeyvaluestore",
+    "https://developer.apple.com/forums/thread/821222"
+   ]
+  },
+  {
+   "id": "MATCH-10",
+   "title": "Envelope and versioning: version sits inside the compressed, signed blob; signed bytes are undefined; no rule for mixed app versions in one match",
+   "severity": "minor",
+   "kind": "design-flaw",
+   "planRefs": [
+    "5.4 (rows 'newer app version' and 'fails its signature')",
+    "5.5",
+    "12.2 ('Any payload change bumps the schema version')",
+    "Appendix C (v, sig)"
+   ],
+   "planSays": "'v' and 'sig' are fields of the same Codable struct that is deflated and base64url-encoded; 'Decoding rejects unknown versions, bad signatures ...'.",
+   "problem": "(1) A 1.0 client can only read 'v' after inflating and parsing with the 1.0 format. If a later version changes compression, encoding or the key, 1.0 clients see garbage or a bad signature and show 'Couldn't read this challenge - Start new' instead of 'Update needed'. This cannot be fixed after 1.0 ships. (2) 'sig' is inside the object it signs and the signed byte string is not defined. A verifier that re-encodes the struct is fragile: Swift dictionary order (sr) is not stable and JSONEncoder does not sort keys unless told to, and tools/payload.py must reproduce the bytes exactly. (3) No rule says which schema version a newer app writes when it answers an older match; if it writes the new one, the 1.0 player is locked out of a match they started.",
+   "evidence": "Appendix C struct. Swift's Dictionary iteration order is not guaranteed and JSONEncoder needs the sortedKeys option for deterministic output (language and Foundation behaviour).",
+   "recommendation": "Fix the envelope before any code: URL carries v as its own plain item (for example ...#v=1&p=<body>&s=<mac>); the decoder checks v first, then verifies the MAC over the exact received body bytes prefixed with a context string ('riff-match' + v), then inflates and parses. sig leaves the struct. Add the rule 'a client writes in the match's version v; new fields only appear in matches started at the new version' and a decode test per old version (already in 12.2). Publish golden vectors (hex body, MAC, decoded JSON) in the repo that both the Swift tests and payload.py must reproduce.",
+   "confidence": "high",
+   "verifyOnDevice": false
+  },
+  {
+   "id": "MATCH-11",
+   "title": "The embedded HMAC key is not a secret and stops almost nobody; treat it as an integrity check and do not build secret handling around it",
+   "severity": "minor",
+   "kind": "design-flaw",
+   "planRefs": [
+    "5.5",
+    "6.4 ('Scores sent to friends are signed and sanity-checked')",
+    "7.1 (Signing: CryptoKit HMAC)",
+    "13 (forged scores row)",
+    "Appendix C (sig)"
+   ],
+   "planSays": "'HMAC-SHA256 with a key compiled into the app, truncated to 16 bytes. It stops casual URL edits, not a determined cheater'.",
+   "problem": "The truncation is fine (128-bit tag). The threat model is off: on iOS a player has no way to hand-edit a message URL and put it back into a bubble; only code running as this extension can create its messages, and anyone able to run modified code has the key. So the MAC protects against corruption and little else, yet it adds a canonicalisation problem (MATCH-10) and a 'secret' that has to live somewhere: committed to the repository it is public, injected at build time it complicates Phase 0, CI and the Python tools. It also gives no per-player authenticity, so it does not stop one player rewriting another's entry, replaying an older state, or closing a round. Section 6.4's 'signed' overstates what players get.",
+   "evidence": "didReceive doc: 'You receive notifications about messages sent using your extension only. You cannot interact with messages from other extensions.' RFC 2104 section 5 accepts truncation to at least half the hash length (128 bits for SHA-256). Per-player signatures were sized: Curve25519 needs 32-byte key plus 64-byte signature per entry, about 3 KB for 32 players, which does not fit.",
+   "recommendation": "Keep a keyed checksum but simplify: a fixed, documented, non-secret key constant in GameConfig (per schema version), tag truncated to 8 bytes, described in the plan as tamper-evidence and corruption detection only. No build-time secret plumbing. State in 5.5 that rollback and replay protection among honest clients comes from the monotonic merge and ledger (MATCH-1), not from the MAC, and reword 6.4. Revisit real authentication only with the server planned for global leaderboards.",
+   "confidence": "medium",
+   "verifyOnDevice": false,
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msmessagesappviewcontroller/didreceive(_:conversation:)"
+   ]
+  },
+  {
+   "id": "MATCH-12",
+   "title": "Schema v1 lacks fields the design depends on and carries fields that can only be wrong",
+   "severity": "minor",
+   "kind": "gap",
+   "planRefs": [
+    "5.3",
+    "5.5",
+    "6.3 ('Titles ... In the bubble, next to the nickname'; 'Score-card frames ... In the bubble')",
+    "Appendix C"
+   ],
+   "planSays": "Entry = p, n, s, a, c, st, fc, lv, t. Titles and frames are 'bubble-visible unlocks' that 'matter most'.",
+   "problem": "Missing: (1) the equipped title and frame ids; the device rendering a two-player result card or a leaderboard cannot draw other players' titles or frames, and in-app standings cannot show them either; (2) member count and deadline (MATCH-3); (3) previous-round result for duels (MATCH-4); (4) attempt count if that option is chosen (MATCH-8); (5) a content revision, so a chart-hash mismatch can say who is out of date (MATCH-14). Redundant: st and fc are functions of s and c plus the chart (Full Combo is exactly longest streak == note count; stars follow from score over base score), so they can only disagree with the truth; sr is undefined for group rounds yet would add up to 32 keys there; 'by' does not say whether it is the match starter or the current round's starter.",
+   "evidence": "Appendix C versus 6.3 and 4.4 ('streak s (consecutive notes without a miss, every chord note counted)'). Adding title, frame, attempts, 12-hex ids, n and dl to the plan's JSON takes a 32-entry round with 16-CJK nicknames from 3,602 to 3,959 base64url characters (computed), 137 under a 4,096 cap.",
+   "recommendation": "Freeze schema v1 as: v, id, mode, r, round descriptor (song, part, diff, ch, content revision, by = starter of this round, t0, n, dl), e[] with p, n, s, a, c, lv, t, ti (title id), fr (frame id) and optionally k (attempts); sr and pr only in duel mode; closed. Drop st and fc and derive them at decode. Unknown cosmetic ids render as the default. Recompute the size table with the final schema before coding.",
+   "confidence": "high",
+   "verifyOnDevice": false
+  },
+  {
+   "id": "MATCH-13",
+   "title": "JSON plus deflate works but has data-dependent size and little headroom; a fixed binary layout gives a provable bound and no compression dependency",
+   "severity": "minor",
+   "kind": "opportunity",
+   "planRefs": [
+    "5.5",
+    "7.1",
+    "7.2 (Match/PayloadCodec, Signer; tools/payload.py)",
+    "12.2 ('RiffCore never imports UIKit, SpriteKit or AVFoundation')",
+    "Appendix C"
+   ],
+   "planSays": "'Compact JSON, deflate-compressed and base64url-encoded'.",
+   "problem": "The size of a deflated payload depends on how compressible user text is, so 'fits in 4 KB' is a statistical statement; with the fields the design still needs (MATCH-12) the worst realistic case is within 4% of the cap. For duels deflate is unnecessary (raw JSON is 574-731 base64url characters). The codec also needs the Compression framework and CryptoKit, which exist only on Apple platforms, so the Match module cannot be built or tested on a Linux runner or in the Linux sandbox where the Python tools run; and 'deflate' must be pinned to raw RFC 1951, otherwise Swift, Python and any web page will disagree.",
+   "evidence": "Computed: a hand-laid binary layout (1-byte version, 8-byte match id, packed enums, varint numbers, 6-byte ids, length-prefixed nickname, title, frame, attempts, n, dl) is 149 bytes (199 characters) for a duel and, for 32 entries, 1,839 characters with 16-byte nicknames, 2,522 with a 32-byte nickname cap and 3,204 with a 48-byte cap, all exact upper bounds without compression. The plan's JSON plus deflate measures 2,298 (ASCII) to 3,602 (CJK) before the added fields and 2,658 to 3,959 after. Apple: COMPRESSION_ZLIB 'is the raw DEFLATE format as described in IETF RFC 1951' at level 5.",
+   "recommendation": "Decide in DECISIONS.md before P1.8. Recommended: versioned binary layout, no compression, nickname capped in bytes, with the worst case asserted as a compile-time-checkable formula in tests and a JSON debug view in payload.py. If JSON is kept: state raw deflate (Python zlib with wbits -15), cap output while inflating, skip deflate when it does not shrink, and keep the adversarial size test from MATCH-6.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "https://developer.apple.com/documentation/compression/compression_zlib"
+   ]
+  },
+  {
+   "id": "MATCH-14",
+   "title": "Decode checks are incomplete, unordered, and a chart mismatch cannot tell who must update",
+   "severity": "minor",
+   "kind": "gap",
+   "planRefs": [
+    "5.2 ('a mismatch (different app versions) asks the player to update')",
+    "5.4",
+    "5.5 ('Decoding rejects ...')",
+    "Appendix A ('maxScore is the every-note-at-x8 ceiling')",
+    "P1.9"
+   ],
+   "planSays": "'Decoding rejects unknown versions, bad signatures, scores above the chart's theoretical maximum, more than 32 entries and anything over 4 KB.'",
+   "problem": "(1) Order matters and is unstated: if the score bound is checked against the local chart before the chart hash is compared, a newer chart with a higher maximum produces 'Couldn't read this challenge' instead of 'Update needed'. (2) With only an 8-hex hash the device cannot tell whether it or the sender is out of date, so it may tell the up-to-date player to update. (3) Missing checks: duplicate player ids in e; a in 0..10,000; c <= note count; lv in 1..50; t not far in the future; r >= 1; duel has at most 2 entries; sum of sr <= r-1; nickname rules (MATCH-6); unknown song id (receiver is behind). (4) The x8 ceiling is loose: Hype can cover at most 48 beats (6 phrases x 25% x 32 beats), so in the Appendix A example the ceiling of 337,600 sits far above anything reachable from a 162,800 base; forged scores up to twice the base pass.",
+   "evidence": "Appendix A numbers recomputed: 412 notes x 100 x 8 = 329,600 plus 40 hold beats x 25 x 8 = 8,000 gives 337,600; base 158,800 + 4,000 = 162,800. A 3,898-character payload can inflate to 3 MB (computed), so the size check must precede inflation.",
+   "recommendation": "Specify the decode pipeline in 5.5 as an ordered list with one result per failure: URL length, version (Update needed), MAC, inflate with output cap, structural bounds, song known (else Update needed), content revision and chart hash (ahead: 'Ask <name> to update'; behind: 'Update needed'), then per-entry bounds against the chart. An entry failing a per-entry check is dropped, not the whole match. Have chartcheck write a tighter bound (base score plus the best 48 Hype beats) as maxScore. Give each rule a tamper test in P1.9.",
+   "confidence": "high",
+   "verifyOnDevice": false
+  },
+  {
+   "id": "MATCH-15",
+   "title": "XP rules are not yet a single computable formula: floating-point rounding, practice halving, streak percentage and bonus scope are ambiguous",
+   "severity": "minor",
+   "kind": "ambiguity",
+   "planRefs": [
+    "6.1 (table and 'Order of operations')",
+    "6.4",
+    "Appendix D (streak.days)",
+    "P1.7",
+    "Phase 6 done-when"
+   ],
+   "planSays": "'add the events, apply the streak bonus, apply the featured multiplier, round down. Practice runs earn half XP.' 'Daily streak +10% per consecutive day, max +50%'.",
+   "problem": "(1) Implemented with Double, 'round down' gives wrong results for reachable inputs, and Swift, Python tests and the plan's tables will disagree. (2) Where the practice halving sits relative to the multipliers and the floor is unstated. (3) Day 1 of a streak could mean +0% or +10% (does days = 4 mean +30% or +40%?). (4) Unstated whether the streak and featured multipliers scale the +100 first-run bonus, whether a practice run can earn the first-run bonus and extend the streak, and what happens to XP beyond level 50. (5) Any finished run pays the full 'Finish a song' 100, including a run started from a duel bubble and never sent, which bypasses the practice halving, and a run with the phone lying on the table.",
+   "evidence": "python3: floor(180 x 1.4) evaluates to 251, exact value 252 (a 4-star run at +40% streak); 28 of the reachable (event sum, streak, featured, practice) combinations differ between float and exact arithmetic. Typical-run check: 3-4 stars pays 160-180 on a loss and 235-255 on a win.",
+   "recommendation": "Write the formula in 6.1 in integers: xp = floor(E x (100 + S) x F x P / 20000) with E the event sum, S = 10 x min(5, streakDays - 1) (so day 1 is +0%, [DECIDE]), F = 150 or 100, P = 50 for practice else 100. State: the first-run bonus is inside E; practice counts for the daily streak but earns the halved total; deferred duel and podium bonuses are flat (MATCH-4); XP keeps accumulating past level 50 with the level capped. A run earns 'Finish a song' only with at least 1 star (20% of base), and a run opened from a bubble but not sent is credited as practice. Put 10 worked examples in the plan and use them as golden tests shared by Swift and Python.",
+   "confidence": "high",
+   "verifyOnDevice": false
+  },
+  {
+   "id": "MATCH-16",
+   "title": "Daily streak and 'first run of the day' are undefined under time-zone travel and clock changes",
+   "severity": "minor",
+   "kind": "gap",
+   "planRefs": [
+    "6.1 ('First run of the day +100'; 'Daily streak')",
+    "6.4 ('consecutive local calendar days; a missed day resets it')",
+    "Appendix D (streak.lastPlayed '2026-11-12')"
+   ],
+   "planSays": "'at least one finished run on consecutive local calendar days; a missed day resets it.' lastPlayed is stored as a bare local date.",
+   "problem": "A bare local date loses the information needed to be fair or consistent. Eastward travel across many zones can skip a local calendar day although less than 30 hours passed, resetting a streak. A clock set backwards makes 'today' earlier than lastPlayed, a case with no rule. Setting the clock forward one day at a time farms +100 and builds a +50% streak in minutes; the plan accepts self-only cheating, but the level and titles are shown to friends on every card. Which instant decides the day (run start or run end, relevant at midnight) is also unstated.",
+   "evidence": "Reasoning; Appendix D stores only {days, lastPlayed}. Example: a run at 23:00 Monday in Los Angeles is 07:00 Tuesday UTC; landing in Tokyo 25 hours later is already Wednesday local time, so local Tuesday never had a run.",
+   "recommendation": "Store lastRunAt (UTC seconds), lastLocalDay (year-month-day in the Gregorian calendar at run end) and a high-water mark of the latest local day ever credited. Rules: day difference 0 is the same day; 1 extends the streak; 2 or more resets unless less than 48 h of real time elapsed (travel grace); a local day at or before the high-water mark never grants the first-run bonus or a streak step again. Evaluate at run end. Put these cases in the P1.7 tests with an injected clock and calendar.",
+   "confidence": "high",
+   "verifyOnDevice": false
+  },
+  {
+   "id": "MATCH-17",
+   "title": "Featured song by 'ISO week mod song count' is uneven at year boundaries, repeats with 3 or 4 songs, and is not 'the same for everyone'",
+   "severity": "minor",
+   "kind": "design-flaw",
+   "planRefs": [
+    "6.4 ('rotates every Monday by ISO week number (week mod song count). It's the same for everyone without a server')",
+    "13 ('launch can go with 3 songs if needed')",
+    "P1.7"
+   ],
+   "planSays": "'rotates every Monday by ISO week number (week mod song count). It's the same for everyone without a server'.",
+   "problem": "ISO week numbers restart at 1 after week 52 or 53, so the cycle breaks every January. With the fallback of 3 songs the same song is featured in week 52 and week 1 of every 52-week year; with 4 songs it repeats across the 2026/27 boundary. With 5 songs two songs are skipped and three repeat. The index is into an unspecified ordering of songs, the count changes when an update adds a song (the featured song jumps mid-week and differs between players on different versions), 'Monday' is local time so players in different zones disagree for up to a day, and an implementation using the user's current calendar would use locale week rules (weeks starting on Sunday, different week 1) and non-Gregorian calendars.",
+   "evidence": "python3: ISO 2026 has 53 weeks (2032 is the next). Indices for the last three and first three weeks: 3 songs, 2027 into 2028: 2,0,1,1,2,0; 4 songs, 2026 into 2027: 3,0,1,1,2,3; 5 songs, 2026 into 2027: 1,2,3,1,2,3. 1 January 2027 is ISO 2026-W53 day 5.",
+   "recommendation": "Define: weekIndex = floor((UTC day number - day number of Monday 2026-01-05) / 7); featured = schedule[weekIndex mod schedule.count], where schedule is an explicit ordered list of song ids in progression.json. New songs are appended to the list. Evaluate in UTC at run end. Reword the claim to 'the same for everyone on the same app version'. Test year boundaries 2026/27 and 2027/28 and a schedule-length change.",
+   "confidence": "high",
+   "verifyOnDevice": false
+  },
+  {
+   "id": "MATCH-18",
+   "title": "Unlock counts, defaults and the sample profile do not agree with each other",
+   "severity": "nit",
+   "kind": "inconsistency",
+   "planRefs": [
+    "6.2",
+    "6.3",
+    "Appendix D"
+   ],
+   "planSays": "15 + 6 + 8 + 6 + 5 unlocks; 'About one reward per level, front-loaded so levels 2-10 each unlock something'; sample profile at level 10 with xp 8240 has three unlocked items and equips 'frame.basic' and 'fx.sparks'.",
+   "problem": "The table totals 40 items for 49 level-ups, which fits 'about one per level' only if the five default items a level-1 player needs are extra; if the defaults are inside the counts, 35 rewards remain and, after levels 2-10, 26 rewards cover 40 levels whose cost reaches 5,300 XP (about 23 runs) each. The sample profile equips two items that are not in its unlocked list and holds 3 unlocks at level 10 although levels 2-10 alone should have granted 9. It also stores both xp and level, which can drift apart when the curve is retuned.",
+   "evidence": "15+6+8+6+5 = 40; levels 2-50 = 49 level-ups; level 49 to 50 costs 400 + 100 x 49 = 5,300; 8,240 XP is level 10 (level 11 needs 9,500), all recomputed.",
+   "recommendation": "State in 6.3 that each type has one default item outside the counts (or adjust the counts), give progression.json an explicit level-to-reward table with the nine empty levels chosen deliberately, fix the Appendix D example, and remove 'level' from the stored profile (derive it from xp).",
+   "confidence": "high",
+   "verifyOnDevice": false
+  },
+  {
+   "id": "MATCH-19",
+   "title": "Ranking details left open: 'whoever played first', 'top 3 plus your own place', and conversations with no remote participant",
+   "severity": "nit",
+   "kind": "ambiguity",
+   "planRefs": [
+    "4.6 ('Duel tie-breakers, in order: score, accuracy, longest streak, then whoever played first')",
+    "5.1 ('top 3 plus your own place')",
+    "5.3 ('Captions read the same for everyone')",
+    "5.4"
+   ],
+   "planSays": "Tie-break ends with 'whoever played first'; the group bubble shows 'top 3 plus your own place'.",
+   "problem": "'Played first' can mean array order or the self-reported timestamp t; after a merge (MATCH-1) array order is not stable across devices and t depends on each phone's clock, so two devices can rank a tie differently and pay different podium XP. The bubble image is rendered once by the sender and is identical for every viewer, so 'your own place' on the bubble can only be the sender's place; the per-viewer place exists only inside the app. Mode selection for a conversation with zero remote participants (a note to self) is undefined.",
+   "evidence": "MSMessageTemplateLayout carries one image set by the sender; plan 5.3 already notes captions are the same for everyone.",
+   "recommendation": "Define ranking as a pure function of payload integers: score desc, a desc, c desc, t asc, player id asc; entries are stored sorted by that key so every device encodes the same bytes. Change 5.1 to 'the card shows the top 3 and the sender's place; the app shows yours'. With zero remote participants offer Practice only.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "https://developer.apple.com/documentation/messages/msmessagetemplatelayout"
+   ]
+  },
+  {
+   "id": "MATCH-20",
+   "title": "Build the match and progression rules first as an executable Python reference with shared golden vectors, since Python runs here and Swift does not",
+   "severity": "minor",
+   "kind": "opportunity",
+   "planRefs": [
+    "7.2 (tools/payload.py)",
+    "11 (Rules, Payload, Determinism rows)",
+    "12",
+    "P1.7",
+    "P1.8",
+    "P1.9",
+    "P5.1",
+    "Phase 4 done-when"
+   ],
+   "planSays": "P1.9: 'golden scoring runs, codec round-trips and tamper cases, payload size limits, and a bot simulator'. Section 12: the sandbox 'has no Swift toolchain'.",
+   "problem": "The protocol risks in this review (merge, settlement, conflict resolution, size bounds, XP arithmetic, week rotation) are pure logic that can be validated today, but the plan tests them only in Swift, which cannot be compiled in the authoring environment, and only through sequential happy-path device tests in Phase 4. No test in the plan exercises reordering, duplication or loss of messages, multi-device identities, or membership change.",
+   "evidence": "No Swift toolchain is present in this environment (checked: no swift or swiftc on PATH); python3 with zlib and hmac is available and was used for every number in this review.",
+   "recommendation": "Add to Phase 1 (alongside P5.1): tools/refmodel/ with Python implementations of the codec, merge, ranking, settlement, XP and featured rotation, plus a conversation simulator (N devices, random interleavings, reinstall and second-device events) asserting convergence, no lost entry and exactly-once XP. Export fixtures (payload vectors, merge cases, XP cases, rotation dates) as JSON under Packages/RiffCore/Tests/RiffCoreTests/Fixtures; the Swift tests load the same files, so the Mac build proves the two implementations agree. Add to the Phase 4 gate: one forced concurrent submission, one simultaneous rematch, one bubble opened on the same Apple ID's second device, one member without the app.",
+   "confidence": "high",
+   "verifyOnDevice": false
+  }
+ ],
+ "confirmedSound": [
+  "Level curve arithmetic is correct: 500 XP to level 2, 8,100 total to level 10, 142,100 total to level 50 (sum of 400+100L recomputed); the sample profile's 8,240 XP is level 10.",
+  "'About 35 typical runs' to level 10 and '200-300 XP for a typical duel turn' are reasonable: a 3-4 star run pays 160-180 on a loss and 235-255 on a win; the 50% win-rate average is 207 without daily bonuses (39 runs) and 218-327 per run with the first-run bonus and a streak (25-37 runs). Maximum single run is 1,001 XP, minimum 100.",
+  "A duel payload is under 1 KB: 290 characters for the opening turn and 371-531 for two entries with ASCII, emoji or CJK nicknames (python3, raw deflate level 5, base64url).",
+  "A 32-entry round with a 32-key series map stays inside 4 KB for nicknames of 16 Unicode scalars: 2,298 (random ASCII), 3,134 (emoji), 3,602 (CJK) characters. The claim fails only for the limit as literally written (16 grapheme clusters), see MATCH-6.",
+  "The 4 KB cap is below Apple's documented limit: 'the URL cannot be longer than 5,000 characters' (MSMessage.url).",
+  "HMAC-SHA256 truncated to 16 bytes is cryptographically adequate (128-bit tag, within RFC 2104 guidance); the weakness is the shared embedded key, which the plan already acknowledges.",
+  "Appendix A's example numbers are internally consistent: baseScore 162,800 = 158,800 note points (x1, x2, x3 for ten notes each, then x4) + 4,000 sustain (40 hold beats); maxScore 337,600 = 412 x 800 + 40 x 25 x 8.",
+  "An 8-hex-character player id is collision-safe for the group size (1.2e-7 for 32 players); the problem is where the id comes from, not its length.",
+  "Unlock arithmetic: 15+6+8+6+5 = 40 rewards for 49 level-ups is consistent with 'about one reward per level' provided default items are counted separately.",
+  "One MSSession per match does replace the previous bubble on update (MSSession and insert documentation), so 'one bubble per match' is how the platform behaves in the non-concurrent case.",
+  "Reading the selected message on every activation (section 3) is the right instinct and matches Apple's note that selectedMessage is not refreshed; it needs the ledger merge from MATCH-1 to be sufficient.",
+  "Using CryptoKit and the system Compression library (raw DEFLATE, RFC 1951) is technically workable on iOS 17; Python's zlib with wbits=-15 interoperates."
+ ],
+ "openQuestions": [
+  "Is localParticipantIdentifier the same in every conversation on one device, or different per conversation? Not documented; decides whether any Messages UUID could ever serve as a cross-chat key and how linkable it is.",
+  "For a message sent from the same Apple ID's other device, does senderParticipantIdentifier equal this device's localParticipantIdentifier? This decides whether 'sent by me' can guard against self-duels without sync.",
+  "Does MSMessage.url keep a #fragment end to end, and what does a Mac do when a bubble with a data: URL is clicked? Decides the fallback URL form in MATCH-7.",
+  "After two concurrent updates to one session, do all devices end up showing the same surviving bubble, and is the losing message's summary text all that remains of it?",
+  "Does remoteParticipantIdentifiers count group members who do not have the app (assumed yes)? And what does a mixed SMS/RCS group receive for a session message: can the extension detect such a conversation at all?",
+  "Does iCloud key-value storage work from a Messages extension whose containing app has no user-facing code (entitlement on the extension target), and does a write survive the extension being terminated shortly after?",
+  "Product decisions needed before the payload schema is frozen: one counted attempt versus visible attempt count for the responder; group round deadline length; sync through iCloud versus device-only progress; whether day 1 of a streak is +0% or +10%.",
+  "Is the repository public? If so the MAC key is public by construction, which is acceptable only under the 'integrity check, not secret' framing of MATCH-11.",
+  "What happens to an open duel round the opponent never answers: may the waiting player withdraw and start a new round in the same bubble, and does a new match started from the drawer begin its series tally at 0-0 (recommended) rather than from a local record that the two devices may not share?",
+  "openradar.appspot.com (radar 27228322, 'Can't identify participants in group conversation in messages extension') and the WWDC16 session 224 transcript could not be fetched from this environment; the Apple reference pages cited cover the same points."
+ ]
+}

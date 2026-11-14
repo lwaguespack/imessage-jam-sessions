@@ -1,0 +1,397 @@
+{
+ "findings": [
+  {
+   "id": "GAME-1",
+   "title": "With no ghost-tap penalty, blind mashing gives a Full Combo and about 80% of base score",
+   "severity": "major",
+   "kind": "design-flaw",
+   "planRefs": [
+    "4.3",
+    "14 (Ghost-tap penalty row)",
+    "4.6",
+    "P1.9"
+   ],
+   "planSays": "4.3: 'A touch matches the earliest unjudged note in its lane whose window contains the touch time.' and 'A touch that matches no note (a ghost tap) costs nothing in v1. [DECIDE]'. Section 14 recommends 'Ghost-tap penalty: None in v1'.",
+   "problem": "Every note has a 260 ms wide window (312 ms on Easy) and stray touches are free, so tapping each lane periodically with a period at or under the window width hits every note without reading the chart. The streak never breaks, so the x4 multiplier and Full Combo are kept. A blind masher out-scores an honest mid-skill player, and the same trick used only on hard passages is a strictly dominant way to protect a streak. The whole product is score duels, so the plan's recommended default undermines them.",
+   "evidence": "Simulation of the plan's rules (earliest-unjudged matching, 45/90/130 ms windows, streak tiers of 10, random charts at the 8.4 densities, 60 charts each): tapping every lane every 250 ms (16 taps/s over four fingers) scores a median 82% of base on Easy with FC in 60/60 runs, 77% on Medium (FC 45/60) and 77% on Hard (FC 43/60); every 200 ms gives 83% with FC 60/60 on Medium and Hard. Expert needs a 125 ms period (79%, FC 60/60). For comparison an honest bot with 4% misses and 35 ms timing sigma scores 55-58% of base, and one with 1.5% misses scores 78-82%. With 'ghost tap resets the streak' the same masher drops to 18-24%. Scripts: /tmp/claude-0/-home-user-imessage-jam-sessions/1091d72a-dedf-55f2-8d6c-c68b0ba05340/scratchpad/review/game_c.py and game_b.py.",
+   "recommendation": "Change the section 14 recommendation and write the rule into 4.3: a touch-down that matches no note resets the streak to 0 on every difficulty; it is not a Miss for accuracy or Hype phrases. Redefine Full Combo as 'longest streak equals note count' so a mashed run cannot earn it. Two exemptions: a touch-down in a lane within bounceGrace (start 80 ms) after a hit in that lane is ignored, and touches before the first note's window opens or after the last note is judged are ignored. Keep ghostTapPenalty (none, dropTier, resetStreak) per difficulty in GameConfig so Easy can be softened after playtests. Add a masher bot to P1.9 (each lane every 200 ms and 250 ms, random phase) with the acceptance rule: never a Full Combo and below the casual bot's median on every shipped chart. Also reword the 4.3 table row 'Miss: beyond 130, or no touch': a touch outside every window is a ghost tap, never a Miss, and only an expired window produces a Miss.",
+   "confidence": "high",
+   "verifyOnDevice": true,
+   "deviceTest": "On the Phase 3 slice with the plan's current rules, lay the phone flat and drum four fingers (one per lane) at roughly 4-5 taps per second each for a whole Easy, Medium and Hard chart without looking at the notes. Record misses, Full Combo and score as a share of base score from the Diagnostics report, then repeat with the streak-reset rule enabled.",
+   "sources": [
+    "/tmp/claude-0/-home-user-imessage-jam-sessions/1091d72a-dedf-55f2-8d6c-c68b0ba05340/scratchpad/review/game_c.py",
+    "/tmp/claude-0/-home-user-imessage-jam-sessions/1091d72a-dedf-55f2-8d6c-c68b0ba05340/scratchpad/review/game_b.py"
+   ]
+  },
+  {
+   "id": "GAME-2",
+   "title": "The engine has no time or event-ordering contract, so results depend on frame timing and replays cannot be exact",
+   "severity": "major",
+   "kind": "gap",
+   "planRefs": [
+    "4.3",
+    "7.3 step 4",
+    "11 (Determinism row)",
+    "P1.3",
+    "P1.4",
+    "P1.5",
+    "P1.9"
+   ],
+   "planSays": "7.3: 'Each touch is judged at the song time of its hardware timestamp, not the frame that processed it'. 4.3: 'A note still unhit 130 ms after its time becomes a Miss.' Section 11: 'Same inputs give the same score: record an input log, replay it through the game session, compare'.",
+   "problem": "Touches are judged at their hardware timestamp, but the miss sweep, Hype expiry, sustain accrual and hold ends are unspecified and would naturally run on frame time. A touch is always delivered after its timestamp, so three things go wrong. (1) A valid Good hit at +125 ms that is delivered after a frame at +132 ms has already swept the note becomes a ghost tap plus a Miss. (2) A note tapped 5 ms before Hype expires but processed after the frame that ended Hype scores x4 instead of x8, a 400-point swing. (3) The same input log fed with a different frame cadence gives a different score, so the determinism test in section 11 cannot be an exact comparison. Nothing defines the order of events that share a timestamp, which will be common: two chord touches, or a Hype tap and a note tap, reported in the same touch scan.",
+   "evidence": "Apple's UIEvent documentation states that touch data is sampled faster than it is delivered ('Some devices gather touch data at rates up to 240 Hz, which is normally higher than the rate that touches are delivered to your app'), and UITouch.timestamp is 'the time, in seconds since system startup, that the touch originated', so delivery time is always later than the timestamp the plan judges with. The plan defines no engine API, time type, tie order or rule for when a Miss becomes final. The frame-dependence is shown numerically in GAME-3.",
+   "recommendation": "Add a section 4.9 'Engine contract' and build P1.3-P1.5 against it. (a) Song time is Int64 microseconds, signed (negative in the lead-in); all windows in GameConfig are integer microseconds. (b) The engine never reads a clock or random source. Its API is apply(event) for touchDown(id, lane, t), touchUp(id, t) (also used for cancels) and activateHype(t), plus advance(to: t). (c) Internally it keeps a queue of scheduled events (miss deadline = note time + Good window, hold end, Hype expiry) and processes everything in one total order: time, then class (activateHype, touchDown, touchUp, holdEnd, missDeadline, hypeExpiry), then lane. This makes a touch at exactly the window edge a hit and a touch at exactly Hype expiry doubled. (d) Driver rule: inputs are applied as they arrive; each frame calls advance(to: songTimeNow - inputGuard) with inputGuard in GameConfig (start 50 ms). An input older than the engine's current time is clamped to it and counted in Diagnostics. Miss feedback therefore appears inputGuard later than the window edge; hit feedback is immediate. (e) P1.9 adds a partition-invariance property test: replaying one input log with random advance() subdivisions must give an identical RunSummary and event list. The input log format is exactly the apply() events plus chart hash, rules version and difficulty.",
+   "confidence": "high",
+   "verifyOnDevice": true,
+   "deviceTest": "In spike S3 (or P3.3), log for every touch-down the difference between CACurrentMediaTime() at the moment the handler runs and touch.timestamp, over a 3-minute session at 60 Hz and at 120 Hz, including while the highway is rendering 200 sprites. Paste p50, p99 and max in the Diagnostics report; set inputGuard to the max plus one frame.",
+   "sources": [
+    "https://developer.apple.com/documentation/uikit/uievent/coalescedtouches(for:)",
+    "https://developer.apple.com/documentation/uikit/uitouch/timestamp"
+   ]
+  },
+  {
+   "id": "GAME-3",
+   "title": "Sustain points and Hype drain are continuous, fractional quantities with no rounding rule, so scores are frame-rate dependent and base score is not reproducible",
+   "severity": "major",
+   "kind": "ambiguity",
+   "planRefs": [
+    "4.4",
+    "4.5",
+    "4.6",
+    "8.3 step 4",
+    "P1.1",
+    "P1.4",
+    "P1.6",
+    "Appendix A"
+   ],
+   "planSays": "4.4: 'Holds add sustain points continuously while held, capped at the hold's length: sustain points = 25 x beats held x m'. 4.5: 'the meter drains 1/32 per beat'. 4.6: 'The chart tool computes it [base score] offline and stores it in each chart.' Appendix A stores tempo as a float ('bpm': 128.0); the payload score is an Int.",
+   "problem": "Scores are integers but sustain is fractional: the Expert minimum hold of 1/4 beat is worth 6.25, 12.5 or 18.75 points at x1-x3, and no rounding rule exists (per frame, per hold or per run). 'Continuously' invites per-frame accrual, which attributes whole frames to the wrong multiplier and samples the release late. Hype drain per frame has the same problem for its expiry time. Base score is computed by a Python tool and scores by Swift, so the two must round identically or star cutoffs and golden tests disagree. Tick-to-time conversion across tempo changes is also unspecified (float accumulation order, and no time-to-tick inverse, which sustain and Hype both need).",
+   "evidence": "Computed: a 4-beat hold at 128 BPM with the multiplier going x4 to x8 at 0.500 s and release at 1.700 s is worth 618.67 points exactly; naive per-frame accrual gives 622.22, 618.67 or 616.89 depending on frame rate (60 or 120 fps) and frame phase. One 60 Hz frame of sustain at x8 is 7.1 points, so identical play differs by several points per event between devices. Script: /tmp/claude-0/-home-user-imessage-jam-sessions/1091d72a-dedf-55f2-8d6c-c68b0ba05340/scratchpad/review/game_e.py. Double arithmetic itself is not the risk (same code on arm64 gives the same bits); frame-dependent accumulation and unspecified rounding are.",
+   "recommendation": "Specify integer tick-domain math. (1) Tempo is stored as integer milli-BPM ('mbpm': 128000), which is also lossless from the source .chart format. Time of a tick inside a tempo segment = segStartUs + floor(deltaTicks x 60,000,000,000 / (mbpm x resolution)); segment starts are accumulated with the same formula; the inverse is tick = segTick + floor(deltaUs x mbpm x resolution / 60,000,000,000). Both fit in Int64 for any 2-minute song. (2) A beat is always 'resolution' ticks (a quarter note), whatever the time signature. (3) Sustain: while a hold is live the engine adds m x deltaTicks to one integer accumulator U, splitting at every event that changes m; score = notePoints + floor(25 x U / resolution), one floor for the whole run. (4) Hype meter is an integer in ticks: phrase = 8 x resolution, cap = 32 x resolution, activation threshold = 16 x resolution; while active it drains one unit per chart tick, so expiry tick = activation tick + meter, converted to microseconds once (and recomputed when a phrase adds meter). (5) baseScore = perfect run evaluated in ticks with the same formulas (notes at a tick are scored in lane order, then sustain from that tick uses the new streak); maxScore = 800 x noteCount + floor(200 x totalHoldTicks / resolution). (6) Golden test: for every bundled chart the Swift perfect-run bot must equal computed.baseScore exactly.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "/tmp/claude-0/-home-user-imessage-jam-sessions/1091d72a-dedf-55f2-8d6c-c68b0ba05340/scratchpad/review/game_e.py"
+   ]
+  },
+  {
+   "id": "GAME-4",
+   "title": "Star thresholds miss the plan's own target: one miss costs a fixed 6,400 points, so stars mostly count misses and Easy charts are hit hardest",
+   "severity": "major",
+   "kind": "design-flaw",
+   "planRefs": [
+    "4.4",
+    "4.6",
+    "8.4",
+    "P1.6",
+    "P1.9"
+   ],
+   "planSays": "4.6: stars at 20/40/60/80/95% of base score, where 'Base score is a perfect run with no Hype', and 'Thresholds get tuned with the bot simulator (task P1.9) so a capable player lands 3-4 stars at their usual difficulty.' 4.4: m = min(4, 1 + floor(s/10)). 8.4: Easy averages 1-2 notes per second.",
+   "problem": "After a miss the next 30 notes score at x1, x2, x3 instead of x4, so one miss at full multiplier costs 400 + 3,000 + 2,000 + 1,000 = 6,400 points regardless of chart length. As a share of base that is about 2.6% on a 630-note Expert chart but 16.5% on a 112-note Easy chart and 35.6% on a 60-note Easy chart (1 note/s for 60 s, which 8.4 allows). The stated starting thresholds therefore do not deliver '3-4 stars for a capable player', and no single percentage table can fit both Easy and Expert, because the miss cost does not scale with chart size. On Easy the 30-note ramp is also 15-30 seconds of play.",
+   "evidence": "Exact arithmetic, all other notes Perfect, misses evenly spread: Easy 112 notes: 1 miss = 84% (4 stars), 2 = 67% (3), 3 = 53% (2), 5 = 40% (1). Easy 60 notes: 1 miss = 65% (3 stars), 2 = 48% (2). Expert 450 notes: 5 misses = 82% (4 stars), 12 = 56% (2). Bot runs (independent misses, Gaussian timing, no Hype; 4,000 runs each, an assumption that is harsher than clustered real misses): 8% misses and 45 ms sigma gives a median 36-39% of base (1 star in 56-83% of runs); 4% misses and 35 ms sigma gives 55-58% (2 stars most often); 1.5% misses gives 78-82%. Script: /tmp/claude-0/-home-user-imessage-jam-sessions/1091d72a-dedf-55f2-8d6c-c68b0ba05340/scratchpad/review/game_b.py.",
+   "recommendation": "(1) Make star cutoffs per-chart data: chartcheck writes computed.starCutoffs (five absolute scores) from a per-difficulty share table in the shared rules file, and StarRating reads them, so tuning never needs a code change and both phones agree through the chart hash. (2) Replace the starting shares with 10/25/45/65/85%, which maps the five bots above to 1-5 stars without Hype; re-derive them with the P1.9 simulator before any screen shows stars. (3) Bound the ramp relative to chart size: make streakPerTier a per-difficulty GameConfig value (start Easy 4, Medium 6, Hard 8, Expert 10) or add a chartcheck minimum of 120 notes per chart; record the choice in DECISIONS.md. (4) State that the share can exceed 100% with Hype and that the comparison is done in integers: score x 100 >= baseScore x percent.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "/tmp/claude-0/-home-user-imessage-jam-sessions/1091d72a-dedf-55f2-8d6c-c68b0ba05340/scratchpad/review/game_b.py"
+   ]
+  },
+  {
+   "id": "GAME-5",
+   "title": "Same-lane minimum gaps (90, 150, 250 ms) sit inside the 130 ms window, so one skipped note downgrades every following hit",
+   "severity": "major",
+   "kind": "design-flaw",
+   "planRefs": [
+    "4.3",
+    "8.4",
+    "P1.2",
+    "P1.3"
+   ],
+   "planSays": "4.3: Good window 130 ms either side; 'A touch matches the earliest unjudged note in its lane whose window contains the touch time.' 8.4: minimum gap on one lane is 400 / 250 / 150 / 90 ms for Easy / Medium / Hard / Expert.",
+   "problem": "When two same-lane notes are closer than the Good window (plus how early the player taps), a skipped note is still live when the tap for the next note arrives, so earliest-unjudged matching gives that tap to the stale note as a late Good or Great. The next tap then lands on the note before it, and so on until a gap appears; the last note of the run becomes the Miss. On Expert three windows can overlap at once (notes at 0, 90 and 180 ms all contain t = 85 ms). A 90 ms same-lane repeat is also about 11 taps per second on one column, beyond a single thumb.",
+   "evidence": "Simulation of the plan's rule, first note of a same-lane run skipped, the rest tapped: gap 90 ms, on time: every hit judged Great(+90) instead of Perfect; gap 120 ms, on time: every hit Good(+120); gap 150 ms (Hard minimum) with taps only 20 ms early: every hit Good(+130). Nearest-note matching fixes these but breaks the opposite case: a player consistently 50 ms late on a 90 ms run gets Miss plus a ghost tap. Script: /tmp/claude-0/-home-user-imessage-jam-sessions/1091d72a-dedf-55f2-8d6c-c68b0ba05340/scratchpad/review/game_e.py.",
+   "recommendation": "For v1 keep earliest-unjudged matching and remove the overlap at chart level: chartcheck enforces same-lane gap > Good window + Perfect window for the chart's difficulty, so a tap inside the next note's Perfect window can never be captured by the previous note. The 8.4 column becomes 400 / 250 / 180 / 180 ms (Easy needs at least 211 ms and already has 400). If faster same-lane repeats are wanted on Expert later, change the judge instead: clip each note's window at the midpoint to its same-lane neighbours so windows never overlap, and record the trade-off in DECISIONS.md. Add golden tests for a skipped-note run at the minimum legal gap with taps at -45, 0 and +45 ms.",
+   "confidence": "high",
+   "verifyOnDevice": true,
+   "deviceTest": "Debug chart with same-lane repeats at 250, 180, 150, 120 and 90 ms spacing (8 notes each, separated by rests). Three playtesters play it with two thumbs; record hit rate and judgement mix per spacing from Diagnostics to confirm where single-lane repeats stop being playable.",
+   "sources": [
+    "/tmp/claude-0/-home-user-imessage-jam-sessions/1091d72a-dedf-55f2-8d6c-c68b0ba05340/scratchpad/review/game_e.py"
+   ]
+  },
+  {
+   "id": "GAME-6",
+   "title": "Hype rules leave at least eight behaviours undefined",
+   "severity": "major",
+   "kind": "ambiguity",
+   "planRefs": [
+    "4.2 (Hype phrase row)",
+    "4.5",
+    "Appendix A (hype array)",
+    "P1.4",
+    "8.3 step 2"
+   ],
+   "planSays": "4.2: 'Hit every note in the phrase at Good or better to charge Hype.' 4.5: 'Each completed Hype phrase adds 25% to the meter, up to 100%. Charts carry 4-6 phrases per song.' 'At 50% or more, the player taps the Hype button'. 'While active, the multiplier doubles (max x8) and the meter drains 1/32 per beat'. Appendix A: 'hype': [{ 'start': 3072, 'end': 4608 }].",
+   "problem": "Two engineers would differ on: (1) whether 'end' is inclusive and which phrase a hold belongs to; (2) when a phrase completes (last note judged, or phrase end tick) and whether a dropped sustain fails it; (3) whether a phrase completed while Hype is active adds meter and extends it; (4) what happens to a phrase completed at 100% (4-6 phrases is 100-150% in total); (5) whether activation is allowed mid-phrase and whether it can be cancelled; (6) which timestamp decides whether a note is doubled; (7) what a Miss does to an active Hype; (8) leftover meter at song end. 'At Good or better' is redundant, since every hit is Good or better. Phrase count is fixed at 4-6 regardless of length: six phrases are 48 beats, 37.5% of a 60 s song at 128 BPM.",
+   "evidence": "Plan text only gives the five sentences quoted. Arithmetic: 25% = 8 beats, 6 phrases = 48 beats; a 60 s song at 128 BPM has 128 beats (37.5% under Hype), a 90 s song 192 beats (25%).",
+   "recommendation": "Add these rules to 4.5. R1: a phrase is the half-open tick range [start, end); its members are notes whose head tick is inside; a hold belongs by its head only. R2: a phrase fails at its first member Miss and completes the moment its last member is hit; sustains do not matter. R3: completion adds 8 beats of meter, clamped at 32; overflow is discarded; this also applies while Hype is active, which extends it. R4: activation is accepted only when Hype is inactive and the meter is at least 16 beats; it takes effect at the button touch's timestamp; otherwise the tap is ignored at no cost; Hype cannot be cancelled. R5: a note is doubled if activation <= touch time <= expiry; sustain is doubled tick by tick. R6: a Miss does not affect the meter or an active Hype; pause freezes it; unused meter at the end is lost. R7 (chartcheck): phrases sorted and non-overlapping, at least 4 member notes at every difficulty, both notes of a chord in the same phrase, last phrase ends at least 16 beats before the final note, and total capacity (8 beats x phrase count) at most 30% of the song's beats. Meter arithmetic in integer ticks as in GAME-3.",
+   "confidence": "high",
+   "verifyOnDevice": false
+  },
+  {
+   "id": "GAME-7",
+   "title": "Hold rules are incomplete: missed head, late head, re-press, finger slide, same-lane touches, holds shorter than the hit window",
+   "severity": "major",
+   "kind": "ambiguity",
+   "planRefs": [
+    "4.2 (Hold row)",
+    "4.4",
+    "8.4 (Shortest hold)",
+    "P1.2",
+    "P1.3",
+    "P1.4"
+   ],
+   "planSays": "4.2: 'Head judged like a tap; sustain points accrue while held; releasing early ends the sustain without a miss'. 4.4: sustain uses m, 'capped at the hold's length'. 8.4: shortest hold is 1/4 beat on Expert.",
+   "problem": "Undefined: (1) whether a missed head still lets the player grab the tail late; (2) whether sustain starts at the head's time or the touch's time when the head is hit early or late; (3) whether the sustain multiplier is the live one or latched at the head; (4) whether a released hold can be re-pressed; (5) whether a finger sliding into another column releases the hold or hits a note there; (6) what a second finger in the same lane does during a hold; (7) how soon a new note may follow a hold's end in the same lane; (8) what a touch cancel (system gesture, pause) does. Also, 1/4 beat is 117 ms at 128 BPM and 83 ms at 180 BPM, shorter than the 130 ms Good window, so a head hit late can arrive after the hold is already over.",
+   "evidence": "Computed: 1/4 beat = 150 ms at 100 BPM, 117 ms at 128, 100 ms at 150, 83 ms at 180; value 6.25 points at x1. The plan's hold text is the single table row quoted.",
+   "recommendation": "Add to 4.2/4.4: H1 a hold is one note (its head) for streak, accuracy, note count and Hype phrases. H2 the touch that hits the head owns the hold; a touch stays bound to the lane it began in until it ends, and movement is ignored. H3 sustain accrues over ticks [max(headTick, touchTick), min(endTick, releaseTick)), with the live multiplier, in the integer form of GAME-3. H4 a missed head kills the whole hold; later touches in that lane are ordinary touches. H5 lifting or a touch cancel ends the sustain for good: no re-press, no Miss, no effect on streak, phrases or Full Combo. H6 any other touch-down in the lane during a hold is judged as a normal touch. H7 chartcheck: no note in a lane between a hold's head and end; the next same-lane note starts at least the same-lane minimum gap after the hold's end; minimum hold length is the larger of the 8.4 beat fraction and 250 ms. H8 the tail of a dead or released hold is drawn dimmed.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "/tmp/claude-0/-home-user-imessage-jam-sessions/1091d72a-dedf-55f2-8d6c-c68b0ba05340/scratchpad/review/game_a.py"
+   ]
+  },
+  {
+   "id": "GAME-8",
+   "title": "Nothing versions the scoring rules: two app versions with the same chart can score a duel differently, and stored base scores go stale",
+   "severity": "major",
+   "kind": "gap",
+   "planRefs": [
+    "4 (intro)",
+    "4.6",
+    "5.2",
+    "5.5",
+    "8.3 step 4",
+    "P1.6",
+    "Appendix A (computed)",
+    "Appendix C",
+    "15 (intro)"
+   ],
+   "planSays": "Section 4: 'Every number below is a starting value kept in one config file and tuned in playtests.' 5.2: 'The payload carries a chart hash, and a mismatch (different app versions) asks the player to update.' 4.6: base score is computed offline by the chart tool 'and stores it in each chart'. P1.6 also lists 'base score and theoretical maximum per chart' in RiffCore. Appendix C has v (schema version) and ch (chart hash, 8 hex) only.",
+   "problem": "The fairness check covers chart content but not the rules. A retune shipped in an update (a window, a points value, tier size, Hype drain, ghost-tap rule) leaves v and ch unchanged, so two players on different versions are scored under different rules with no 'Update needed' screen. The hash itself is undefined: which bytes, which function, and how it avoids hashing its own field inside 'computed'. baseScore, maxScore and any star cutoffs stored in chart files depend on GameConfig and silently go stale when it changes. Scoring exists twice (Python chartcheck and Swift RiffCore) with no rule for which is authoritative, and GameConfig.swift cannot be read by the Python tools.",
+   "evidence": "Appendix C fields; 12.2 only requires a schema bump for payload shape changes ('Any payload change bumps the schema version'). No section defines the hash input.",
+   "recommendation": "(1) Move every scoring number into one bundled data file, rules.json, with an integer rulesVersion; RiffCore decodes it into GameConfig and the Python tools read the same file. (2) Define the chart hash as the first 8 hex characters of SHA-256 over a canonical byte string: a fixed prefix, rulesVersion, songId, part, difficulty, resolution, tempo list, notes sorted by (tick, lane) with lengths, and hype ranges, one ASCII line each. The 'computed' block is excluded. A rules change therefore changes every hash and reuses the existing 'Update needed' path with no payload change. (3) RiffCore is the authority for baseScore, maxScore and star cutoffs; chartcheck writes them and a RiffCore test recomputes hash, baseScore, maxScore and cutoffs for every bundled chart and requires exact equality. (4) A test stores a digest of rules.json next to rulesVersion and fails if the file changes without a version bump.",
+   "confidence": "high",
+   "verifyOnDevice": false
+  },
+  {
+   "id": "GAME-9",
+   "title": "Unlimited restarts with a visible target let the second player retry until they win",
+   "severity": "major",
+   "kind": "design-flaw",
+   "planRefs": [
+    "4.7",
+    "5.2",
+    "5.4",
+    "6 (intro)",
+    "Appendix C (Entry)"
+   ],
+   "planSays": "4.7: 'Restarting is allowed until you submit; only the submitted run counts for the round.' 5.2: 'One submitted score per player per round; restarts before submitting are fine.' 5.4: the responder's screen shows 'the score to beat'. Section 6: 'a duel is always decided by the run itself'.",
+   "problem": "The responder knows the exact score to beat and can replay without limit or trace, so a duel is decided by patience rather than a run. The first player can also grind before sending, but cannot answer afterwards. A finished run that was not good enough can simply be discarded, and closing Messages discards one mid-song. Manual pauses (collapsing the view) are also unlimited and leave the frozen highway readable, so a hard passage can be studied and taken in pieces. Practice mode already exists for learning a chart.",
+   "evidence": "Reasoning from the quoted rules; the plan has no attempt counter in the payload (Appendix C Entry has p, n, s, a, c, st, fc, lv, t) and no persisted 'attempt started' state.",
+   "recommendation": "Add a [DECIDE] with this recommendation: challenge runs allow retries but count them. When play starts, the app writes an attempt record keyed by match id and round to the App Group store before the first note; Entry gains tr (tries, 1-99); the card shows it ('412,300, try 3'); tie-break order becomes score, accuracy, longest streak, fewer tries, entry order. A stricter option to offer is a single attempt, with restart allowed only in the first 10 seconds. For pauses: blank the highway while paused and record a pause count in RunSummary for Diagnostics. Practice runs are never counted.",
+   "confidence": "medium",
+   "verifyOnDevice": false
+  },
+  {
+   "id": "GAME-10",
+   "title": "Run lifecycle is underspecified: lead-in length, where resume restarts, holds across a pause, when a run is final",
+   "severity": "minor",
+   "kind": "ambiguity",
+   "planRefs": [
+    "4.1",
+    "4.7",
+    "P1.5",
+    "7.3 step 6"
+   ],
+   "planSays": "4.1: 'Scroll speed is the time a note spends on screen: 1.6 s on Easy down to 1.1 s on Expert'. 4.7: 'the music starts after the first notes have had their full scroll time (at least 2 s), with a 3-2-1 count on the beat'; 'Resume shows a 3-beat countdown and restarts audio in sync'; 'the song always plays to the end'.",
+   "problem": "(1) 'Time a note spends on screen' is not the approach time: the strike line is 18% above the bottom, so a note is on screen longer than it takes to reach the line. (2) A count 'on the beat' needs a whole number of beats, but the lead-in is given in seconds; four beats at 128 BPM is 1.875 s, under the 2 s minimum. (3) Resume does not say whether song time continues from the pause point or rewinds, what happens to notes whose window was open, or to holds in progress. (4) It is not stated when the score is final: last note judged, or audio end. A player who collapses the view during the outro may or may not have a submittable run.",
+   "evidence": "Arithmetic: one beat at 128 BPM is 468.75 ms; 4 beats = 1.875 s, 5 beats = 2.344 s. The example chart's first note is at tick 768 = 1.875 s.",
+   "recommendation": "Specify: scroll time is the approach time from spawn to the strike line. Lead-in = the smallest whole number of beats at the opening tempo that is at least max(2 s, approach time minus first note time), with the count on its last three beats; song time runs from minus lead-in. On pause the driver sends touchUp for every active touch (holds end under rule H5 of GAME-7) and stops calling advance; engine time never moves backwards. On resume the audio pre-rolls from 3 beats before the pause point while the highway scrolls already-judged notes dimmed, and the engine resumes at the pause point. The run is final when every note is judged and every hold has ended or been released; the outro can be skipped and leaving after that point keeps the result.",
+   "confidence": "high",
+   "verifyOnDevice": false
+  },
+  {
+   "id": "GAME-11",
+   "title": "The difficulty table cannot be enforced as written and omits the rules that keep charts playable with two thumbs",
+   "severity": "minor",
+   "kind": "gap",
+   "planRefs": [
+    "8.4",
+    "4.1",
+    "4.2",
+    "P1.2",
+    "8.3 steps 3-4",
+    "Appendix A"
+   ],
+   "planSays": "8.4 table: average / peak notes per second, Chords 'None / Rare / Yes / Yes', minimum gap on one lane, shortest hold. 4.2: 'max 2 notes per chord'. 4.1: 'Two-thumb layout: lanes 1-2 for the left thumb, 3-4 for the right.'",
+   "problem": "'Rare' and 'Yes' are not checkable. Average and peak notes per second have no measurement span or window, and it is not stated whether a chord counts as one or two. There is no limit on simultaneous contacts: a hold plus a chord needs three fingers, which a two-thumb layout cannot do. There is no minimum gap between notes on different lanes, so Easy ('Chords: None') can contain two notes 10 ms apart, which is a chord in all but name. The example Expert chart breaks the table under the obvious reading.",
+   "evidence": "Appendix A/B: 412 notes over durationSec 92.0 is 4.48 notes per second, below Expert's 5-7 average unless the span is first-to-last note and under 82.4 s. The ranges themselves are consistent: four lanes at the same-lane gaps allow 10, 16, 26.7 and 44 notes per second against peaks of 3, 5, 7 and 10.",
+   "recommendation": "Replace the table's loose cells with rules chartcheck and reduce.py both use: average = note count / (last note time - first note time); peak = most notes in any sliding 1,000 ms window, each chord note counted. Chords: Easy 0; Medium at most 5% of notes and no two chords within one beat; Hard at most 20%; Expert at most 35% (starting values). Minimum gap between notes on different ticks, any lanes: 250 / 150 / 100 / 70 ms. Simultaneous contacts (active holds plus notes starting on a tick): at most 1 on Easy, 2 elsewhere. Add the hold rules of GAME-7 and the same-lane gaps of GAME-5. Fix the example so it passes.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "/tmp/claude-0/-home-user-imessage-jam-sessions/1091d72a-dedf-55f2-8d6c-c68b0ba05340/scratchpad/review/game_a.py"
+   ]
+  },
+  {
+   "id": "GAME-12",
+   "title": "Judgement and streak edge cases are open: streak before or after the note, same-timestamp order, window edges, Easy's miss time",
+   "severity": "minor",
+   "kind": "ambiguity",
+   "planRefs": [
+    "4.3",
+    "4.4",
+    "Glossary (Streak)",
+    "P1.3",
+    "P1.4"
+   ],
+   "planSays": "4.4: points use 'the current streak s (consecutive notes without a miss, every chord note counted)'. 4.3: windows given as plus or minus 45 / 90 / 130 ms; 'Easy widens every window by 20%'; 'A note still unhit 130 ms after its time becomes a Miss.'",
+   "problem": "(1) 'Current streak' can mean before or after counting the note being scored; the two readings differ by 300 points per ramp. (2) Two chord notes with different judgements at a tier boundary score differently depending on which is processed first (Perfect at x1 plus Good at x2 is 200; the reverse is 250), and both touches can carry the same timestamp. (3) It is not said whether a touch at exactly 45, 90 or 130 ms is inside the window. (4) The Miss sentence says 130 ms flat, but Easy's Good window is 156 ms.",
+   "evidence": "Computed for 412 Perfect notes: streak-before gives 158,800 and streak-after gives 159,100. Only streak-before reproduces both Appendix A numbers (158,800 + 40 sustain beats x 100 = 162,800 baseScore; 412 x 800 + 40 x 200 = 337,600 maxScore), so the plan's own example implies it. Easy windows are 54 / 108 / 156 ms.",
+   "recommendation": "State in 4.4: s is the streak before the note is added, so notes 1-10 of a streak score x1 and x4 starts at the 31st. State in 4.3: windows are inclusive (absolute offset <= window, in integer microseconds); a note becomes a Miss when time passes note time + that difficulty's Good window (156 ms on Easy); events with equal timestamps are processed in the class-then-lane order of GAME-2. Add boundary golden tests at exactly 45, 90, 130 and 130.001 ms and a chord across the streak 9/10 boundary.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "/tmp/claude-0/-home-user-imessage-jam-sessions/1091d72a-dedf-55f2-8d6c-c68b0ba05340/scratchpad/review/game_a.py"
+   ]
+  },
+  {
+   "id": "GAME-13",
+   "title": "Song length is stated three ways and the longer one breaks the 'under 2 minutes' pillar",
+   "severity": "minor",
+   "kind": "inconsistency",
+   "planRefs": [
+    "1 (How a turn works, Snackable pillar)",
+    "2 (5 launch songs row)",
+    "4 (intro)",
+    "8.2",
+    "Appendix B"
+   ],
+   "planSays": "Section 1: 'play a 60-90 second run' and 'a full turn takes under 2 minutes, menus included'. Section 4: 'A run is one 60-90 second song'. Section 2: '5 launch songs, 60-120 s each'. 8.2: 'A 60-120 second edit'. Appendix B: 'durationSec': 92.0.",
+   "problem": "A 120 s song cannot fit a turn of under 2 minutes, and even 90 s leaves about 25 s for opening the app, picking a song, the lead-in, results and sending. The example manifest (92 s) is outside the 60-90 s range the gameplay spec states. Song length also drives note counts, Hype capacity and the star maths.",
+   "evidence": "90 s song + lead-in of at least 2 s + menus and results; 120 s song alone equals the 2-minute budget.",
+   "recommendation": "Use 60-90 s everywhere (sections 2 and 8.2 change), make manifest validation reject durationSec outside 55-95 s, and change the Appendix B example to a value in range. If 120 s songs are wanted, change the pillar to 'under 3 minutes' instead and record it in DECISIONS.md.",
+   "confidence": "high",
+   "verifyOnDevice": false
+  },
+  {
+   "id": "GAME-14",
+   "title": "Accuracy rounding and the last tie-break are not defined in a way every device computes identically",
+   "severity": "minor",
+   "kind": "ambiguity",
+   "planRefs": [
+    "4.6",
+    "Appendix C (Entry.a, Entry.t)",
+    "P1.6",
+    "P1.8"
+   ],
+   "planSays": "4.6: 'Accuracy = (Perfects + 0.8 x Greats + 0.5 x Goods) / total notes' and 'Duel tie-breakers, in order: score, accuracy, longest streak, then whoever played first.' Appendix C: 'a: accuracy in basis points, 0-10,000' and 't: Unix time in seconds'.",
+   "problem": "The payload carries accuracy as an integer but no rounding rule is given, and the tie-break compares accuracy. 'Whoever played first' has two candidate sources: the entry's device clock time t, which comes from different phones and can be wrong or changed, and the order of entries in the array.",
+   "evidence": "Plan text; with float division, 0.8 and 0.5 weights and a round-versus-floor choice can differ by one basis point between implementations.",
+   "recommendation": "Define accuracy in integers: a = floor((10,000 x Perfects + 8,000 x Greats + 5,000 x Goods) / noteCount), where noteCount is the chart's note count (a hold counts once). Tie-breaks compare the transmitted integers. 'Played first' means lower index in the entries array; t is display-only. Ranking in group rounds uses the same four keys.",
+   "confidence": "high",
+   "verifyOnDevice": false
+  },
+  {
+   "id": "GAME-15",
+   "title": "maxScore is a valid ceiling but about 1.6 times looser than anything reachable, and the plan's headline score exceeds it",
+   "severity": "minor",
+   "kind": "opportunity",
+   "planRefs": [
+    "Appendix A",
+    "5.5",
+    "1",
+    "5.3"
+   ],
+   "planSays": "Appendix A: 'maxScore is the every-note-at-x8 ceiling used to reject impossible scores' with baseScore 162,800 and maxScore 337,600 for the Neon Nights Expert example. Sections 1 and 5.3 use 'Beat 412,300 on Neon Nights, Expert' as the example bubble.",
+   "problem": "Every note at x8 is 2.07 times base, but Hype can only be active for 8 beats per phrase, at most 48 beats with six phrases, so real scores top out near 1.2-1.5 times base. An edited score between that and maxScore passes the sanity check. Separately, the example bubble's 412,300 is above the same chart's maxScore of 337,600, so the plan's own decoder would reject it.",
+   "evidence": "337,600 / 162,800 = 2.07. Total meter gained is at most 25% x phrase count, so Hype is active for at most 8 x phrases beats: 48 of the example's 196 beats (92 s at 128 BPM), 24.5%. 412,300 > 337,600.",
+   "recommendation": "Have chartcheck and RiffCore compute a tighter ceiling: baseScore plus the points of the highest-scoring 8 x phraseCount beats of the perfect run (a sliding sum over per-tick points; it is still a strict upper bound because Hype coverage can never exceed that many beats). Store it as maxScore. Add cheap consistency checks on decode: fc implies longest streak equals note count, stars equal the locally recomputed value, longest streak at most note count. Change the example score in sections 1 and 5.3 to one under the example chart's ceiling.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "/tmp/claude-0/-home-user-imessage-jam-sessions/1091d72a-dedf-55f2-8d6c-c68b0ba05340/scratchpad/review/game_a.py"
+   ]
+  },
+  {
+   "id": "GAME-16",
+   "title": "Touch-zone geometry contradicts itself, and 'Portrait only' is not something the extension can enforce",
+   "severity": "minor",
+   "kind": "inconsistency",
+   "planRefs": [
+    "4.1",
+    "4.5",
+    "3 (screen sizes row)"
+   ],
+   "planSays": "4.1: 'notes travel toward a strike line about 18% above the bottom edge. Portrait only.' and 'Touch zones are the bottom 35% of the screen split into 4 equal columns. A touch anywhere in a column counts, so thumbs never cover the gem.' 4.5: the Hype button sits 'just above the right-hand touch zone'. Section 3: 'highway width capped'.",
+   "problem": "(1) The strike line (18%) is in the middle of the touch zone (0-35%), so thumbs rest on the line and cover gems for the last part of their travel; the stated benefit does not follow. (2) Percentages are 'of the screen', but the extension only owns the expanded view, minus the bottom safe area. (3) Four equal columns of the screen do not line up with a width-capped highway on iPad or a wide foldable. (4) A button just above the right touch zone sits on the approach path of lanes 3-4. (5) Orientation is controlled by the host app; an extension's view controller is not the window's root, so it cannot refuse landscape if Messages rotates.",
+   "evidence": "Apple's supportedInterfaceOrientations documentation: 'the system calls this method on the root view controller or the topmost modal view controller that fills the window'. An extension's controller is hosted inside Messages, so it is neither (inference; not confirmed on a device).",
+   "recommendation": "Define layout against the game view's safe-area rectangle, with strikeLineY and touchZoneTop as layout constants tuned in spike S3. Decide and state one of: thumbs tap on the line (then draw hit feedback above the touch zone and delete the 'never cover' claim) or thumbs tap below it (strike line at the top of the touch zone). Touch columns follow the highway's lane edges at the strike line, with the two outer columns extended to the view edges. Place the Hype control outside the highway's projected footprint. Replace 'Portrait only' with: when the view is wider than tall, pause and show a rotate prompt.",
+   "confidence": "medium",
+   "verifyOnDevice": true,
+   "deviceTest": "In spike S2/S3 on an iPhone with rotation lock off: open the extension expanded, log view bounds and safeAreaInsets, rotate to landscape and log whether the view rotates and its new bounds. On the same build draw the 18% line and 35% zone and check by hand whether resting thumbs cover the line. Repeat on iPad.",
+   "sources": [
+    "https://developer.apple.com/documentation/uikit/uiviewcontroller/supportedinterfaceorientations"
+   ]
+  },
+  {
+   "id": "GAME-17",
+   "title": "Test determinism needs three things the plan does not list: a seeded generator for bots, no dependence on Dictionary order, and the simulator as a command-line tool",
+   "severity": "minor",
+   "kind": "gap",
+   "planRefs": [
+    "11 (Determinism and Balance rows)",
+    "P1.9",
+    "P5.4",
+    "Appendix C (sr: [String: Int])",
+    "8.3 step 4"
+   ],
+   "planSays": "P1.9: 'golden scoring runs ... and a bot simulator that reports star distributions by skill level'. Section 11: 'Bot simulator at 5 skill levels, varying timing noise and miss rate', run for 'Each new chart'. Appendix C: 'var sr: [String: Int]' and a signature over the payload.",
+   "problem": "Swift's default random generator cannot be seeded, so bot results would change on every run and star tuning would not be reproducible. Dictionary iteration order and Hasher values change between launches, so any engine event list, chart hash or signed payload bytes built by iterating a Dictionary can differ between two runs or two phones. The simulator is described as a test, but P5.4 and chartcheck need to run it per chart from the tools.",
+   "evidence": "Apple documentation: SystemRandomNumberGenerator 'is automatically seeded'; Hasher: 'Do not save or otherwise reuse hash values across executions of your program. Hasher is usually randomly seeded'; Dictionary: 'The order of key-value pairs in a dictionary is stable between mutations but is otherwise unpredictable'; JSONEncoder offers the sortedKeys output option for stable key order.",
+   "recommendation": "Add to P1.9 and 12.2: RiffCore ships its own small seeded generator (SplitMix64) used by every bot, with the seed printed in reports. RiffCore never iterates a Dictionary or Set where order reaches output; payload and golden-file encoding use JSONEncoder with sortedKeys, and the signature is computed over those canonical bytes. Add a SwiftPM executable target (riff-tool) in the RiffCore package exposing basescore, hash, stars and simulate, which chartcheck.py calls, so there is one implementation of the rules.",
+   "confidence": "high",
+   "verifyOnDevice": false,
+   "sources": [
+    "https://developer.apple.com/documentation/swift/systemrandomnumbergenerator",
+    "https://developer.apple.com/documentation/swift/hasher",
+    "https://developer.apple.com/documentation/swift/dictionary",
+    "https://developer.apple.com/documentation/foundation/jsonencoder/outputformatting-swift.struct/sortedkeys"
+   ]
+  }
+ ],
+ "confirmedSound": [
+  "Multiplier formula is self-consistent across sections 4, 4.4 and 4.5: x1 for streak 0-9, x2 for 10-19, x3 for 20-29, x4 from 30, x8 cap with Hype.",
+  "Appendix A example numbers are internally consistent under 'streak counted before the note': 412 Perfects = 158,800; plus 40 beats of sustain at x4 = 162,800 (baseScore); 412 x 800 + 40 x 200 = 337,600 (maxScore). The 'after' reading (159,100) cannot reproduce both.",
+  "maxScore as defined (every note Perfect at x8 plus every sustain tick at x8) is a true upper bound on any achievable score under section 4: there is no other point source, the multiplier never exceeds 8 and sustain is capped at hold length.",
+  "Hype arithmetic: 25% per phrase = 8 beats, a full meter = 32 beats = 8 bars of 4/4, the 50% threshold = 16 beats.",
+  "Easy windows are 54 / 108 / 156 ms; with Easy's 400 ms same-lane gap no two windows in a lane overlap (312 < 400).",
+  "The 8.4 peak densities never exceed what the same-lane gaps permit (four lanes allow 10, 16, 26.7 and 44 notes per second against peaks of 3, 5, 7 and 10).",
+  "7.3 step 4 is sound: judging at UITouch.timestamp (seconds since system startup, per Apple's documentation) removes up to one frame of error, and '8-16 ms' matches 120 Hz and 60 Hz frame times (8.3 and 16.7 ms).",
+  "The 'at least 2 s' lead-in covers the slowest allowed scroll time (2.0 s).",
+  "Sustain is a small, non-exploitable share of score: a 4-beat hold at x4 is 400 points, the same as one Perfect note at x4, and sustain is 2.5% of the example chart's base score.",
+  "Base score ('a perfect run with no Hype') is well defined in the tick domain once a rounding rule exists, because in a perfect run the streak changes exactly at note ticks.",
+  "Accuracy weights equal judgement points / 100, and the four tie-break keys form a total order once 'played first' is read as entry order."
+ ],
+ "openQuestions": [
+  "Ghost taps: reset the streak (recommended), drop one multiplier tier, or add an early-Miss zone before each note? Should Easy be softer than the other difficulties?",
+  "Challenge attempts: counted retries shown on the card (recommended) or a single attempt per round?",
+  "Are same-lane repeats faster than about 180 ms wanted on Expert (two thumbs alternating on one column)? If yes the judge must change to midpoint-clipped windows instead of the chart rule in GAME-5.",
+  "Should the streak tier size be the same on every difficulty (10 notes) or scale down on Easy and Medium so the ramp lasts a similar number of seconds?",
+  "Should a Hype phrase completed while Hype is active extend it (recommended), and should phrase count scale with song length instead of a fixed 4-6?",
+  "Strike line: do thumbs tap on the line or below it? This decides strikeLineY, the touch-zone top and where hit feedback is drawn.",
+  "Song length: 60-90 s everywhere, or keep 120 s songs and relax the 'under 2 minutes' pillar?",
+  "Not verified here (hosts blocked): that Moonscraper's default resolution is 192 and that .chart stores tempo as integer milli-BPM; both are from memory and should be confirmed when chartconv.py is written.",
+  "The bot results in GAME-4 assume independent misses; real misses cluster, which costs less multiplier. The P1.9 simulator should include a clustered-miss bot before star cutoffs are fixed."
+ ]
+}
