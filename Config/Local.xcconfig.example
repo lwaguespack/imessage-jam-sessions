@@ -1,0 +1,7 @@
+// Copy to Config/Local.xcconfig and fill in. That file is gitignored, so nothing personal is committed.
+
+// A prefix you own, for example com.yourname
+RIFF_BUNDLE_PREFIX = com.example
+
+// The 10-character Team ID from developer.apple.com (Membership details)
+DEVELOPMENT_TEAM = ABCDE12345

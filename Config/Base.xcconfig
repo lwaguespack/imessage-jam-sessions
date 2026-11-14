@@ -1,0 +1,17 @@
+// Build settings shared by every target and configuration.
+// Put your own values in Config/Local.xcconfig (gitignored); see Local.xcconfig.example.
+
+// Reverse-DNS prefix for bundle ids. The app is <prefix>.Riff, the extension <prefix>.Riff.MessagesExtension.
+RIFF_BUNDLE_PREFIX = dev.riff.placeholder
+
+// The name shown in the Messages app drawer. "Riff" is a code name; change it here only.
+RIFF_DISPLAY_NAME = Riff
+
+// Your Apple Developer Team ID. Empty is fine for simulator builds.
+DEVELOPMENT_TEAM =
+
+// Keep MARKETING_VERSION equal to RiffCoreInfo.version; a RiffCore test compares them.
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+
+#include? "Local.xcconfig"

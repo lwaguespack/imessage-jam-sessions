@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  core-linux:
+    name: RiffCore (Linux)
+    runs-on: ubuntu-24.04
+    container: swift:6.2-noble
+    steps:
+      - uses: actions/checkout@v5
+      - name: Swift formatting
+        run: swift format lint --strict --recursive Packages RiffMessages
+      - name: Build
+        run: swift build --package-path Packages/RiffCore
+      - name: Test
+        run: swift test --package-path Packages/RiffCore
+      - name: Tunables snapshot is current
+        run: scripts/sync-config-snapshot.sh --check
+
+  tools:
+    name: Python tools
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: python -m pip install -r tools/requirements-dev.txt pillow
+      - name: Lint and test
+        run: scripts/test-tools.sh
+      - name: Icon set is complete
+        run: python scripts/make-placeholder-icons.py --check
+
+  ios:
+    name: iOS build (Xcode on macOS)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the project
+        run: xcodegen generate
+      - name: Build for the simulator (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project Riff.xcodeproj -scheme Riff -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee xcodebuild.log | xcbeautify
+      - name: RiffCore tests (macOS)
+        run: swift test --package-path Packages/RiffCore
+      - name: Keep the build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: xcodebuild.log

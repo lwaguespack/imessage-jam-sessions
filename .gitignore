@@ -1,0 +1,25 @@
+# Generated Xcode project and local settings
+Riff.xcodeproj/
+Config/Local.xcconfig
+xcuserdata/
+DerivedData/
+*.xcresult
+xcodebuild.log
+
+# SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.egg-info/
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
