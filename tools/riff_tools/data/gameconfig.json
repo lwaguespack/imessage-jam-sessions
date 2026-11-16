@@ -10,12 +10,17 @@
   },
   "charts": {
     "defaultTicksPerBeat": 192,
+    "maxPhrasesPerSong": 6,
+    "minHoldMicros": 250000,
+    "minPhrasesPerSong": 4,
     "rules": {
       "easy": {
-        "chords": "forbidden",
         "maxAverageMilliNotesPerSecond": 2000,
+        "maxChordNoteSharePercent": 0,
         "maxPeakMilliNotesPerSecond": 3000,
+        "maxSimultaneousContacts": 1,
         "minAverageMilliNotesPerSecond": 1000,
+        "minCrossLaneGapMicros": 250000,
         "minSameLaneGapMicros": 400000,
         "shortestHold": {
           "denominator": 1,
@@ -23,32 +28,38 @@
         }
       },
       "expert": {
-        "chords": "allowed",
         "maxAverageMilliNotesPerSecond": 7000,
+        "maxChordNoteSharePercent": 35,
         "maxPeakMilliNotesPerSecond": 10000,
+        "maxSimultaneousContacts": 2,
         "minAverageMilliNotesPerSecond": 5000,
-        "minSameLaneGapMicros": 90000,
+        "minCrossLaneGapMicros": 70000,
+        "minSameLaneGapMicros": 180000,
         "shortestHold": {
           "denominator": 4,
           "numerator": 1
         }
       },
       "hard": {
-        "chords": "allowed",
         "maxAverageMilliNotesPerSecond": 5000,
+        "maxChordNoteSharePercent": 20,
         "maxPeakMilliNotesPerSecond": 7000,
+        "maxSimultaneousContacts": 2,
         "minAverageMilliNotesPerSecond": 3500,
-        "minSameLaneGapMicros": 150000,
+        "minCrossLaneGapMicros": 100000,
+        "minSameLaneGapMicros": 180000,
         "shortestHold": {
           "denominator": 2,
           "numerator": 1
         }
       },
       "medium": {
-        "chords": "rare",
         "maxAverageMilliNotesPerSecond": 3500,
+        "maxChordNoteSharePercent": 5,
         "maxPeakMilliNotesPerSecond": 5000,
+        "maxSimultaneousContacts": 2,
         "minAverageMilliNotesPerSecond": 2000,
+        "minCrossLaneGapMicros": 150000,
         "minSameLaneGapMicros": 250000,
         "shortestHold": {
           "denominator": 2,
@@ -75,14 +86,18 @@
   "hype": {
     "activationMinimum": 16,
     "drainPerBeat": 1,
-    "maxPhrasesPerSong": 6,
     "meterCapacity": 32,
-    "minPhrasesPerSong": 4,
     "multiplier": 2,
     "phraseGain": 8
   },
   "judging": {
-    "ghostTapPenaltyPoints": 0,
+    "bounceGraceMicros": 80000,
+    "ghostTapPenalty": {
+      "easy": "resetStreak",
+      "expert": "resetStreak",
+      "hard": "resetStreak",
+      "medium": "resetStreak"
+    },
     "good": {
       "accuracyBasisPoints": 5000,
       "points": 50,
@@ -110,33 +125,81 @@
     "xpToAdvanceBase": 400,
     "xpToAdvancePerLevel": 100
   },
+  "match": {
+    "groupDeadlineHours": 24,
+    "maxTries": 99
+  },
   "payload": {
-    "chartHashHexCharacters": 8,
-    "matchIDCharacters": 10,
+    "chartHashBytes": 4,
+    "integrityKeyV1": [
+      150,
+      224,
+      80,
+      245,
+      45,
+      6,
+      66,
+      49,
+      67,
+      48,
+      194,
+      85,
+      44,
+      47,
+      129,
+      224,
+      218,
+      127,
+      185,
+      251,
+      208,
+      251,
+      18,
+      216,
+      163,
+      198,
+      145,
+      245,
+      236,
+      208,
+      7,
+      21
+    ],
+    "matchIDBytes": 8,
     "maxDuelEncodedBytes": 1024,
-    "maxEncodedBytes": 4096,
     "maxEntries": 32,
+    "maxNicknameBytes": 32,
     "maxNicknameCharacters": 16,
-    "playerIDHexCharacters": 8,
+    "maxSongIDBytes": 24,
+    "maxURLCharacters": 4096,
+    "playerIDBytes": 8,
     "schemaVersion": 1,
-    "signatureBytes": 16
+    "tagBytes": 8
   },
   "playback": {
     "driftCheckIntervalMicros": 1000000,
     "driftCorrectionThresholdMicros": 3000,
+    "inputGuardMicros": 50000,
     "minLeadInMicros": 2000000,
-    "missDuckMicros": 300000,
+    "missDuckMaxMicros": 600000,
+    "missDuckMinMicros": 120000,
     "resumeCountdownBeats": 3,
     "startCountdownBeats": 3
   },
+  "rulesVersion": 1,
   "scoring": {
     "maxStreakMultiplier": 4,
-    "streakPerMultiplierStep": 10,
+    "streakPerMultiplierStep": {
+      "easy": 4,
+      "expert": 10,
+      "hard": 8,
+      "medium": 6
+    },
     "sustainPointsPerBeat": 25
   },
   "songs": {
     "artworkPixels": 1024,
-    "maxDurationMicros": 120000000,
+    "maxDurationMicros": 90000000,
     "minDurationMicros": 60000000,
     "sourceSampleRatesHz": [
       44100,
@@ -147,13 +210,36 @@
   "stars": {
     "goldMinimumStars": 5,
     "goldStarValue": 6,
-    "thresholdsPercent": [
-      20,
-      40,
-      60,
-      80,
-      95
-    ]
+    "sharesPercent": {
+      "easy": [
+        10,
+        25,
+        45,
+        65,
+        85
+      ],
+      "expert": [
+        10,
+        25,
+        45,
+        65,
+        85
+      ],
+      "hard": [
+        10,
+        25,
+        45,
+        65,
+        85
+      ],
+      "medium": [
+        10,
+        25,
+        45,
+        65,
+        85
+      ]
+    }
   },
   "unlocks": {
     "guaranteedFromLevel": 2,

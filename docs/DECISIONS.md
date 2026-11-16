@@ -361,15 +361,41 @@ exactly-once XP (MATCH-20, adapted: written in Swift, since Swift now runs in ev
 ## Carried into the first tasks
 
 ### D-080 `GameConfig` still holds revision-1 values where a decision changed them
-**Decided.** The scaffold's `GameConfig` was written from PLAN.md revision 1. Task P1.0 applies the
-decided values (same-lane gaps, star shares, per-difficulty streak steps, ghost-tap rule, song
-length, payload limits, calibration and miss-duck settings) and adds `rulesVersion`, before any
-engine code is written. The list is in [plan/phase-1-core-rules.md](plan/phase-1-core-rules.md).
+**Decided; applied in task P1.0.** The scaffold's `GameConfig` was written from PLAN.md revision 1.
+Task P1.0 applied the decided values (same-lane gaps, star shares, per-difficulty streak steps,
+ghost-tap rule, song length, payload limits and miss-duck settings) and added `rulesVersion`, before
+any engine code was written. The calibration settings first listed here wait for Phase 2 (D-083).
+The list is in [plan/phase-1-core-rules.md](plan/phase-1-core-rules.md).
 
 ### D-081 The group-round concurrency test needs three Apple IDs
 **Decided.** The plan budgeted two test devices; the race in D-011 only shows with three members
 (MSG-1). Phase S asks for a third tester for one session.
 
 ### D-082 The two unfinished review areas are scheduled, not skipped
-**Decided.** The build/architecture and content/UX/legal reviews did not run. They are the first
-task of the next working session, before Phase 5 (content) planning is trusted.
+**Decided (by the owner).** The build/architecture and content/UX/legal reviews did not run. The
+build and architecture review runs once Phase 1 exists, so that there is real code to judge. Content,
+UX and legal wait for Phase 5 planning, which is not trusted before then.
+
+## Phase 1
+
+### D-083 Audio and timing tunables join `GameConfig` with the Phase 2 timing code
+**Decided.** D-080 listed calibration settings among the values for task P1.0, but neither spec table
+contains them, and `playback.driftCheckIntervalMicros` and `driftCorrectionThresholdMicros` still
+describe the clock that D-031 replaced. Phase 2 starts only after spike S1, which decides several of
+its rules, and nothing in Phase 1 reads these values. Task P2.0 adds the calibration, clock-filter and
+route settings and removes the two drift values.
+
+### D-084 The integrity key is the SHA-256 of a published label
+**Decided.** D-016 asks for a documented constant key per wire version. `payload.integrityKeyV1` is
+the SHA-256 of the ASCII text `riff-match-integrity-key-v1`, so its 32 bytes can be re-derived instead
+of trusted, and a test does that. A later wire version takes its own label.
+
+### D-085 The rules digest covers the judging, scoring, Hype and star values
+**Decided.** The test that pins scoring values to `rulesVersion` (D-008) takes SHA-256 over the
+canonical JSON of `rulesVersion` and the `judging`, `scoring`, `hype` and `stars` groups of
+`GameConfig`: the values the engine reads to judge and score a run (GAME_RULES sections 3 to 7).
+Chart limits, payload limits, XP and playback settings are outside it, so tuning them does not force
+a rules bump. `playback.inputGuardMicros` is outside because it only sets when the driver calls
+`advance`, which must not change a result (GAME_RULES section 2, rule 5). To keep `hype` to scoring
+values, the phrase-count limits (4 to 6 per chart) moved from `hype` to `charts`. A rule change that
+is not a config value is invisible to the digest and still needs the bump.

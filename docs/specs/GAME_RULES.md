@@ -193,6 +193,10 @@ minimum `16R`. (D-055)
 change a score bumps it. It is part of the chart hash and of the match payload, and a test pins a
 digest of the scoring values to the current version so a silent change fails. (D-008)
 
+The digest is SHA-256 over the canonical JSON of `rulesVersion` and the `judging`, `scoring`, `hype`
+and `stars` groups of `GameConfig`. It cannot see a rule that is not a config value: changing such a
+rule still needs the bump. (D-085)
+
 ## 10. Bots and the simulator
 
 `RiffCore` ships a seeded generator (SplitMix64); every bot takes a seed and reports it. `riffcli
@@ -225,9 +229,16 @@ casual bot's median.
 
 ## 12. GameConfig changes required
 
-The scaffold's `GameConfig` holds PLAN.md revision 1 values. Task P1.0 applies these.
+Applied in task P1.0. The table is kept as the record of what changed from PLAN.md revision 1.
 
-| Property | Now | Required | Why |
+- The chart-rule row covers the three limits it names. The other limits in
+  [CHART_FORMAT.md](CHART_FORMAT.md) section 4 that have no `GameConfig` property yet (tempo bounds,
+  phrase membership and placement, chord spacing on Medium, the peak window's length, the manifest's
+  duration slack) are added with the validator in task P1.2.
+- The phrase-count limits (4 to 6 per chart) moved from `hype` to `charts`, so `hype` holds scoring
+  values only (D-085).
+
+| Property | Was | Now | Why |
 | --- | --- | --- | --- |
 | `rulesVersion` | absent | `1` | D-008 |
 | `scoring.streakPerMultiplierStep` | `10` | per difficulty `4, 6, 8, 10` | D-053 |

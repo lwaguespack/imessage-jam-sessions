@@ -33,12 +33,13 @@ All paths below are under `Packages/RiffCore/Sources/RiffCore/` unless they star
 
 ## P1.0 Apply the decided values
 
-The scaffold's `GameConfig` holds PLAN.md revision 1 values. (D-080)
+**Done.** The scaffold's `GameConfig` held PLAN.md revision 1 values. (D-080)
 
 - Apply the tables "GameConfig changes required" in GAME_RULES.md section 12 and MATCH_PROTOCOL.md
   section 15.
 - Add `rulesVersion = 1` and `Tests/.../RulesVersionTests.swift`: a digest of the scoring-relevant
-  values is pinned to the version, so changing a value without bumping it fails.
+  values is pinned to the version, so changing a value without bumping it fails. The digest needs
+  `Crypto/SHA256.swift`, so that file and its tests land here, not in P1.2. (D-085)
 - Run `scripts/sync-config-snapshot.sh`; update `tools/tests` for the changed values.
 - Add `scripts/coverage-core.sh` (line coverage per file for `Sources/RiffCore`, fails under a
   threshold); the phase gate uses it.
@@ -63,7 +64,7 @@ microseconds; negative time; `Int64` headroom at 400 BPM and 2 minutes.
 | --- | --- |
 | `Chart/ChartDecoder.swift` | Strict JSON decode; rejects unknown format or version |
 | `Chart/ChartValidator.swift` | Every rule in CHART_FORMAT.md section 4, returning a list of issues with tick and lane |
-| `Crypto/SHA256.swift`, `Crypto/HMACSHA256.swift` | Pure Swift (no CryptoKit on Linux). Tested with the published FIPS 180-4 and RFC 4231 vectors; on Apple platforms a test compares against CryptoKit |
+| `Crypto/HMACSHA256.swift` | Pure Swift (no CryptoKit on Linux), built on the `Crypto/SHA256.swift` from P1.0. Tested with the published RFC 4231 vectors; on Apple platforms a test compares against CryptoKit |
 | `Chart/ChartHash.swift` | The canonical string and hash (CHART_FORMAT.md section 2) |
 | `riffcli/Commands/ChartCommand.swift` | `riffcli chart check <file>` and `riffcli chart compute <file>` |
 
@@ -150,7 +151,8 @@ Tests: as listed in MATCH_PROTOCOL.md section 14.
 ## Done when
 
 - `scripts/check.sh` passes locally and CI is green on Linux and macOS.
-- Line coverage is at least 90% on `Engine/`, `Match/` and `Progression/` (`scripts/coverage-core.sh`).
+- Line coverage is at least 90% on each of `Engine/`, `Match/` and `Progression/`, counted over the
+  whole directory (`scripts/coverage-core.sh --min 90 Engine Match Progression`).
 - The conversation simulator converges for 1,000 seeds with no lost entry and exactly-once bonus XP.
 - The masher bot never earns a Full Combo on the example chart and scores below the casual bot.
 - `riffcli chart check` passes on the example chart, and `riffcli payload inspect` round-trips the

@@ -10,7 +10,7 @@ in what order, and how to tell it is done. The specs in [../specs/](../specs/) h
 | --- | --- | --- |
 | 0 Foundations | Below | Done except the owner's steps |
 | S Device spike | [phase-s-device-spike.md](phase-s-device-spike.md) | Outlined; needs the spike build, then devices |
-| 1 Core rules | [phase-1-core-rules.md](phase-1-core-rules.md) | Outlined to file level; ready to start |
+| 1 Core rules | [phase-1-core-rules.md](phase-1-core-rules.md) | In progress: P1.0 done |
 | 2 Audio and clock | [phase-2-audio-clock.md](phase-2-audio-clock.md) | Outlined; starts after spike S1 |
 | 3 to 8 | [phases-3-to-8.md](phases-3-to-8.md) | Outlined at task level; detailed when reached |
 
@@ -47,11 +47,18 @@ Mac or device, and the spike needs only a small throwaway build.
 
 ## What happens next
 
-1. **Finish the review** (D-082): the build/architecture and content/UX/legal areas, and the skeptic
-   pass on the gameplay, match and audio findings. Until then the specs are marked draft 1.
-2. **Phase 1, task P1.0**: bring `GameConfig` in line with the decisions, then the engine.
-3. **Spike build** for Phase S, in parallel, so it is ready when the devices are.
-4. **Owner decisions** in the table at the top of DECISIONS.md. None blocks work today: each has a
+The order the owner set for the current work:
+
+1. **Phase 1, tasks P1.1 and P1.2**: models and the tempo map, then chart decoding, validation and
+   the hash. P1.0 is done.
+2. **Spike build** for Phase S, so it is ready when the devices are.
+3. **Challenge GAME_RULES.md**, whose findings had no skeptic pass, then tasks P1.3 to P1.6.
+4. **Challenge MATCH_PROTOCOL.md**, with the merge property tests and the conversation simulator
+   written first, then tasks P1.7 to P1.9 and the Phase 1 gate. Until each challenge is done, its
+   spec stays marked draft 1.
+5. **Build and architecture review** (D-082), once Phase 1 exists. The content, UX and legal review
+   waits for Phase 5 planning. The audio findings still have no skeptic pass.
+6. **Owner decisions** in the table at the top of DECISIONS.md. None blocks work today: each has a
    default, and each is one configuration value. Music sourcing (D-101) has the longest lead time.
 
 ## How each phase document is organised
