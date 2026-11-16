@@ -49,6 +49,7 @@ scripts/check.sh              # everything that runs without Xcode
 scripts/test-core.sh          # RiffCore tests only
 scripts/test-tools.sh         # Python tools: ruff and pytest
 scripts/lint.sh               # formatting
+scripts/coverage-core.sh      # RiffCore line coverage, file by file
 ```
 
 `scripts/swiftw` runs `swift` from a local toolchain, or in Docker (`swift:6.2-noble`) when there is none,
