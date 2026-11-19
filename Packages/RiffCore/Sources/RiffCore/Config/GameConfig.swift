@@ -1,12 +1,15 @@
 /// Every tunable number in the game, in one value (plan 12.2).
 ///
-/// The property defaults in each group are the plan's starting values, so `standard` is the plan as written.
+/// The property defaults in each group are the plan's starting values as amended by `docs/DECISIONS.md`.
 /// Time is whole microseconds (`Int64`) and every ratio is a whole percentage, basis-point count or explicit
 /// fraction, never floating point, so a run scores bit-identically on every device.
 ///
 /// To try other values, copy `standard` and change fields. Nothing outside this type may hard-code a number
 /// that a playtest could change.
 public struct GameConfig: Codable, Equatable, Sendable {
+    /// Version of the scoring rules. Any change to a rule or value that can change a score bumps it (D-008).
+    public var rulesVersion = 2
+
     /// Lanes, on-screen geometry and note travel times (plan 4.1, 4.2).
     public var highway = Highway()
 
@@ -28,6 +31,9 @@ public struct GameConfig: Codable, Equatable, Sendable {
     /// Limits on the match payload carried in a message (plan 5.5, appendix C).
     public var payload = Payload()
 
+    /// Limits on a match itself: the group-round deadline and the retry count (D-012, D-058).
+    public var match = Match()
+
     /// XP awarded per run (plan 6.1).
     public var xp = XP()
 
@@ -46,6 +52,6 @@ public struct GameConfig: Codable, Equatable, Sendable {
     /// Performance budgets the app is measured against (plan 7.4).
     public var budgets = Budgets()
 
-    /// The plan's starting values.
+    /// The starting values.
     public static let standard = GameConfig()
 }

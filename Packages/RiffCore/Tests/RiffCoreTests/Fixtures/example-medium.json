@@ -1,0 +1,730 @@
+{
+  "computed": {
+    "baseScore": 0,
+    "hash": "e0d0bb1c",
+    "maxScore": 0,
+    "noteCount": 163,
+    "rulesVersion": 2,
+    "starCutoffs": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "difficulty": "medium",
+  "format": "riff-chart",
+  "hype": [
+    {
+      "end": 3840,
+      "start": 3072
+    },
+    {
+      "end": 9216,
+      "start": 8448
+    },
+    {
+      "end": 14592,
+      "start": 13824
+    },
+    {
+      "end": 19968,
+      "start": 19200
+    }
+  ],
+  "lanes": 4,
+  "notes": [
+    {
+      "lane": 0,
+      "length": 288,
+      "tick": 0
+    },
+    {
+      "lane": 1,
+      "tick": 192
+    },
+    {
+      "lane": 2,
+      "tick": 384
+    },
+    {
+      "lane": 3,
+      "tick": 576
+    },
+    {
+      "lane": 0,
+      "tick": 768
+    },
+    {
+      "lane": 1,
+      "tick": 960
+    },
+    {
+      "lane": 2,
+      "tick": 1056
+    },
+    {
+      "lane": 3,
+      "tick": 1152
+    },
+    {
+      "lane": 0,
+      "tick": 1344
+    },
+    {
+      "lane": 1,
+      "tick": 1536
+    },
+    {
+      "lane": 2,
+      "tick": 1632
+    },
+    {
+      "lane": 3,
+      "tick": 1728
+    },
+    {
+      "lane": 0,
+      "tick": 1920
+    },
+    {
+      "lane": 1,
+      "tick": 2112
+    },
+    {
+      "lane": 2,
+      "tick": 2208
+    },
+    {
+      "lane": 3,
+      "tick": 2304
+    },
+    {
+      "lane": 0,
+      "tick": 2496
+    },
+    {
+      "lane": 1,
+      "tick": 2688
+    },
+    {
+      "lane": 3,
+      "tick": 2688
+    },
+    {
+      "lane": 2,
+      "tick": 2784
+    },
+    {
+      "lane": 3,
+      "tick": 2880
+    },
+    {
+      "lane": 0,
+      "length": 384,
+      "tick": 3072
+    },
+    {
+      "lane": 1,
+      "tick": 3264
+    },
+    {
+      "lane": 2,
+      "tick": 3456
+    },
+    {
+      "lane": 3,
+      "tick": 3648
+    },
+    {
+      "lane": 0,
+      "tick": 3840
+    },
+    {
+      "lane": 1,
+      "tick": 4032
+    },
+    {
+      "lane": 2,
+      "tick": 4128
+    },
+    {
+      "lane": 3,
+      "tick": 4224
+    },
+    {
+      "lane": 0,
+      "tick": 4416
+    },
+    {
+      "lane": 1,
+      "tick": 4608
+    },
+    {
+      "lane": 2,
+      "tick": 4704
+    },
+    {
+      "lane": 3,
+      "tick": 4800
+    },
+    {
+      "lane": 0,
+      "tick": 4992
+    },
+    {
+      "lane": 1,
+      "tick": 5184
+    },
+    {
+      "lane": 2,
+      "tick": 5280
+    },
+    {
+      "lane": 3,
+      "tick": 5376
+    },
+    {
+      "lane": 0,
+      "tick": 5568
+    },
+    {
+      "lane": 1,
+      "tick": 5760
+    },
+    {
+      "lane": 2,
+      "tick": 5856
+    },
+    {
+      "lane": 3,
+      "tick": 5952
+    },
+    {
+      "lane": 0,
+      "length": 288,
+      "tick": 6144
+    },
+    {
+      "lane": 1,
+      "tick": 6336
+    },
+    {
+      "lane": 2,
+      "tick": 6528
+    },
+    {
+      "lane": 3,
+      "tick": 6720
+    },
+    {
+      "lane": 0,
+      "tick": 6912
+    },
+    {
+      "lane": 1,
+      "tick": 7104
+    },
+    {
+      "lane": 2,
+      "tick": 7200
+    },
+    {
+      "lane": 3,
+      "tick": 7296
+    },
+    {
+      "lane": 0,
+      "tick": 7488
+    },
+    {
+      "lane": 1,
+      "tick": 7680
+    },
+    {
+      "lane": 2,
+      "tick": 7776
+    },
+    {
+      "lane": 3,
+      "tick": 7872
+    },
+    {
+      "lane": 0,
+      "tick": 8064
+    },
+    {
+      "lane": 1,
+      "tick": 8256
+    },
+    {
+      "lane": 2,
+      "tick": 8352
+    },
+    {
+      "lane": 3,
+      "tick": 8448
+    },
+    {
+      "lane": 0,
+      "tick": 8640
+    },
+    {
+      "lane": 1,
+      "tick": 8832
+    },
+    {
+      "lane": 3,
+      "tick": 8832
+    },
+    {
+      "lane": 2,
+      "tick": 8928
+    },
+    {
+      "lane": 3,
+      "tick": 9024
+    },
+    {
+      "lane": 0,
+      "length": 384,
+      "tick": 9216
+    },
+    {
+      "lane": 1,
+      "tick": 9408
+    },
+    {
+      "lane": 2,
+      "tick": 9600
+    },
+    {
+      "lane": 3,
+      "tick": 9792
+    },
+    {
+      "lane": 0,
+      "tick": 9984
+    },
+    {
+      "lane": 1,
+      "tick": 10176
+    },
+    {
+      "lane": 2,
+      "tick": 10272
+    },
+    {
+      "lane": 3,
+      "tick": 10368
+    },
+    {
+      "lane": 0,
+      "tick": 10560
+    },
+    {
+      "lane": 1,
+      "tick": 10752
+    },
+    {
+      "lane": 2,
+      "tick": 10848
+    },
+    {
+      "lane": 3,
+      "tick": 10944
+    },
+    {
+      "lane": 0,
+      "tick": 11136
+    },
+    {
+      "lane": 1,
+      "tick": 11328
+    },
+    {
+      "lane": 2,
+      "tick": 11424
+    },
+    {
+      "lane": 3,
+      "tick": 11520
+    },
+    {
+      "lane": 0,
+      "tick": 11712
+    },
+    {
+      "lane": 1,
+      "tick": 11904
+    },
+    {
+      "lane": 2,
+      "tick": 12000
+    },
+    {
+      "lane": 3,
+      "tick": 12096
+    },
+    {
+      "lane": 0,
+      "length": 288,
+      "tick": 12288
+    },
+    {
+      "lane": 1,
+      "tick": 12480
+    },
+    {
+      "lane": 2,
+      "tick": 12672
+    },
+    {
+      "lane": 3,
+      "tick": 12864
+    },
+    {
+      "lane": 0,
+      "tick": 13056
+    },
+    {
+      "lane": 1,
+      "tick": 13248
+    },
+    {
+      "lane": 2,
+      "tick": 13344
+    },
+    {
+      "lane": 3,
+      "tick": 13440
+    },
+    {
+      "lane": 0,
+      "tick": 13632
+    },
+    {
+      "lane": 1,
+      "tick": 13824
+    },
+    {
+      "lane": 2,
+      "tick": 13920
+    },
+    {
+      "lane": 3,
+      "tick": 14016
+    },
+    {
+      "lane": 0,
+      "tick": 14208
+    },
+    {
+      "lane": 1,
+      "tick": 14400
+    },
+    {
+      "lane": 2,
+      "tick": 14496
+    },
+    {
+      "lane": 3,
+      "tick": 14592
+    },
+    {
+      "lane": 0,
+      "tick": 14784
+    },
+    {
+      "lane": 1,
+      "tick": 14976
+    },
+    {
+      "lane": 3,
+      "tick": 14976
+    },
+    {
+      "lane": 2,
+      "tick": 15072
+    },
+    {
+      "lane": 3,
+      "tick": 15168
+    },
+    {
+      "lane": 0,
+      "length": 384,
+      "tick": 15360
+    },
+    {
+      "lane": 1,
+      "tick": 15552
+    },
+    {
+      "lane": 2,
+      "tick": 15744
+    },
+    {
+      "lane": 3,
+      "tick": 15936
+    },
+    {
+      "lane": 0,
+      "tick": 16128
+    },
+    {
+      "lane": 1,
+      "tick": 16320
+    },
+    {
+      "lane": 2,
+      "tick": 16416
+    },
+    {
+      "lane": 3,
+      "tick": 16512
+    },
+    {
+      "lane": 0,
+      "tick": 16704
+    },
+    {
+      "lane": 1,
+      "tick": 16896
+    },
+    {
+      "lane": 2,
+      "tick": 16992
+    },
+    {
+      "lane": 3,
+      "tick": 17088
+    },
+    {
+      "lane": 0,
+      "tick": 17280
+    },
+    {
+      "lane": 1,
+      "tick": 17472
+    },
+    {
+      "lane": 2,
+      "tick": 17568
+    },
+    {
+      "lane": 3,
+      "tick": 17664
+    },
+    {
+      "lane": 0,
+      "tick": 17856
+    },
+    {
+      "lane": 1,
+      "tick": 18048
+    },
+    {
+      "lane": 2,
+      "tick": 18144
+    },
+    {
+      "lane": 3,
+      "tick": 18240
+    },
+    {
+      "lane": 0,
+      "length": 288,
+      "tick": 18432
+    },
+    {
+      "lane": 1,
+      "tick": 18624
+    },
+    {
+      "lane": 2,
+      "tick": 18816
+    },
+    {
+      "lane": 3,
+      "tick": 19008
+    },
+    {
+      "lane": 0,
+      "tick": 19200
+    },
+    {
+      "lane": 1,
+      "tick": 19392
+    },
+    {
+      "lane": 2,
+      "tick": 19488
+    },
+    {
+      "lane": 3,
+      "tick": 19584
+    },
+    {
+      "lane": 0,
+      "tick": 19776
+    },
+    {
+      "lane": 1,
+      "tick": 19968
+    },
+    {
+      "lane": 2,
+      "tick": 20064
+    },
+    {
+      "lane": 3,
+      "tick": 20160
+    },
+    {
+      "lane": 0,
+      "tick": 20352
+    },
+    {
+      "lane": 1,
+      "tick": 20544
+    },
+    {
+      "lane": 2,
+      "tick": 20640
+    },
+    {
+      "lane": 3,
+      "tick": 20736
+    },
+    {
+      "lane": 0,
+      "tick": 20928
+    },
+    {
+      "lane": 1,
+      "tick": 21120
+    },
+    {
+      "lane": 2,
+      "tick": 21216
+    },
+    {
+      "lane": 3,
+      "tick": 21312
+    },
+    {
+      "lane": 0,
+      "length": 384,
+      "tick": 21504
+    },
+    {
+      "lane": 1,
+      "tick": 21696
+    },
+    {
+      "lane": 2,
+      "tick": 21888
+    },
+    {
+      "lane": 3,
+      "tick": 22080
+    },
+    {
+      "lane": 0,
+      "tick": 22272
+    },
+    {
+      "lane": 1,
+      "tick": 22464
+    },
+    {
+      "lane": 2,
+      "tick": 22560
+    },
+    {
+      "lane": 3,
+      "tick": 22656
+    },
+    {
+      "lane": 0,
+      "tick": 22848
+    },
+    {
+      "lane": 1,
+      "tick": 23040
+    },
+    {
+      "lane": 2,
+      "tick": 23136
+    },
+    {
+      "lane": 3,
+      "tick": 23232
+    },
+    {
+      "lane": 0,
+      "tick": 23424
+    },
+    {
+      "lane": 1,
+      "tick": 23616
+    },
+    {
+      "lane": 2,
+      "tick": 23712
+    },
+    {
+      "lane": 3,
+      "tick": 23808
+    },
+    {
+      "lane": 0,
+      "tick": 24000
+    },
+    {
+      "lane": 1,
+      "tick": 24192
+    },
+    {
+      "lane": 2,
+      "tick": 24288
+    },
+    {
+      "lane": 3,
+      "tick": 24384
+    }
+  ],
+  "part": "lead",
+  "resolution": 192,
+  "sections": [
+    {
+      "name": "First half",
+      "tick": 0
+    },
+    {
+      "name": "Second half",
+      "tick": 12288
+    }
+  ],
+  "songId": "riff-example",
+  "tempo": [
+    {
+      "mbpm": 120000,
+      "tick": 0
+    },
+    {
+      "mbpm": 128000,
+      "tick": 12288
+    }
+  ],
+  "timeSignatures": [
+    {
+      "den": 4,
+      "num": 4,
+      "tick": 0
+    }
+  ],
+  "version": 1
+}

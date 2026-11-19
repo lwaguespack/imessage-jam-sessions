@@ -19,9 +19,9 @@ struct ModelEnumTests {
         #expect(Judgement.allCases.map(\.rawValue) == ["perfect", "great", "good", "miss"])
     }
 
-    @Test("Chord allowance raw values match the config JSON")
-    func chordAllowanceRawValues() {
-        #expect(GameConfig.ChordAllowance.allCases.map(\.rawValue) == ["forbidden", "rare", "allowed"])
+    @Test("Ghost-tap penalty raw values match the config JSON")
+    func ghostTapPenaltyRawValues() {
+        #expect(GameConfig.GhostTapPenalty.allCases.map(\.rawValue) == ["none", "dropTier", "resetStreak"])
     }
 
     @Test("Enums encode as their raw strings and reject anything else")

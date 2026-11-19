@@ -1,15 +1,5 @@
 extension GameConfig {
-    /// Whether a difficulty's charts may use chords (plan 8.4).
-    public enum ChordAllowance: String, CaseIterable, Codable, Sendable {
-        /// No chords at all.
-        case forbidden
-        /// Chords are allowed but should be uncommon. The plan sets no number; chart review judges it.
-        case rare
-        /// Chords are a normal part of the chart.
-        case allowed
-    }
-
-    /// One row of the difficulty table that chart validation enforces (plan 8.4).
+    /// One row of the difficulty table that chart validation enforces (plan 8.4, D-054, D-060).
     ///
     /// Note densities are in thousandths of a note per second so that 3.5 notes per second is the integer 3,500.
     public struct ChartRule: Codable, Equatable, Sendable {
@@ -22,28 +12,43 @@ extension GameConfig {
         /// Highest density the busiest stretch may reach, in thousandths of a note per second.
         public var maxPeakMilliNotesPerSecond: Int
 
-        /// Whether chords may appear.
-        public var chords: ChordAllowance
+        /// Largest share of the chart's notes that may be chord notes, in percent. Zero forbids chords.
+        public var maxChordNoteSharePercent: Int
+
+        /// Fewest beats between one chord and the next. Zero sets no limit.
+        public var minBeatsBetweenChords: Int
 
         /// Shortest time between two notes on one lane, in microseconds.
         public var minSameLaneGapMicros: Int64
 
-        /// Shortest hold, in beats.
+        /// Shortest time between notes on different ticks, whatever their lanes, in microseconds.
+        public var minCrossLaneGapMicros: Int64
+
+        /// Most fingers the chart may ask for at once: live holds plus the notes starting on a tick.
+        public var maxSimultaneousContacts: Int
+
+        /// Shortest hold, in beats. `Charts.minHoldMicros` also applies; the longer of the two wins.
         public var shortestHold: BeatFraction
 
         public init(
             minAverageMilliNotesPerSecond: Int,
             maxAverageMilliNotesPerSecond: Int,
             maxPeakMilliNotesPerSecond: Int,
-            chords: ChordAllowance,
+            maxChordNoteSharePercent: Int,
+            minBeatsBetweenChords: Int,
             minSameLaneGapMicros: Int64,
+            minCrossLaneGapMicros: Int64,
+            maxSimultaneousContacts: Int,
             shortestHold: BeatFraction
         ) {
             self.minAverageMilliNotesPerSecond = minAverageMilliNotesPerSecond
             self.maxAverageMilliNotesPerSecond = maxAverageMilliNotesPerSecond
             self.maxPeakMilliNotesPerSecond = maxPeakMilliNotesPerSecond
-            self.chords = chords
+            self.maxChordNoteSharePercent = maxChordNoteSharePercent
+            self.minBeatsBetweenChords = minBeatsBetweenChords
             self.minSameLaneGapMicros = minSameLaneGapMicros
+            self.minCrossLaneGapMicros = minCrossLaneGapMicros
+            self.maxSimultaneousContacts = maxSimultaneousContacts
             self.shortestHold = shortestHold
         }
     }
@@ -57,38 +62,80 @@ extension GameConfig {
         /// what generated charts use (plan appendix A).
         public var defaultTicksPerBeat = 192
 
-        /// The difficulty table (plan 8.4).
+        /// Shortest hold on any difficulty, in microseconds (D-056).
+        public var minHoldMicros: Int64 = 250_000
+
+        /// Fewest Hype phrases a chart carries (plan 4.5).
+        public var minPhrasesPerSong = 4
+
+        /// Most Hype phrases a chart carries (plan 4.5).
+        public var maxPhrasesPerSong = 6
+
+        /// Fewest notes a Hype phrase holds.
+        public var minNotesPerPhrase = 4
+
+        /// Fewest beats between the end of the last Hype phrase and the final note.
+        public var minBeatsAfterLastPhrase = 16
+
+        /// Largest share of the song's beats that the phrases' Hype can cover, in percent.
+        public var maxHypeCapacitySharePercent = 30
+
+        /// Finest resolution a chart may use, in ticks per quarter note (D-086).
+        public var maxTicksPerBeat = 960
+
+        /// Slowest tempo a chart may use, in milli-BPM.
+        public var minTempoMilliBPM = 40_000
+
+        /// Fastest tempo a chart may use, in milli-BPM.
+        public var maxTempoMilliBPM = 300_000
+
+        /// Length of the sliding window that peak density is counted over, in microseconds.
+        public var peakWindowMicros: Int64 = 1_000_000
+
+        /// The difficulty table (plan 8.4, D-054, D-060).
         public var rules = PerDifficulty(
             easy: ChartRule(
                 minAverageMilliNotesPerSecond: 1_000,
                 maxAverageMilliNotesPerSecond: 2_000,
                 maxPeakMilliNotesPerSecond: 3_000,
-                chords: .forbidden,
+                maxChordNoteSharePercent: 0,
+                minBeatsBetweenChords: 0,
                 minSameLaneGapMicros: 400_000,
+                minCrossLaneGapMicros: 250_000,
+                maxSimultaneousContacts: 1,
                 shortestHold: BeatFraction(1, 1)
             ),
             medium: ChartRule(
                 minAverageMilliNotesPerSecond: 2_000,
                 maxAverageMilliNotesPerSecond: 3_500,
                 maxPeakMilliNotesPerSecond: 5_000,
-                chords: .rare,
+                maxChordNoteSharePercent: 5,
+                minBeatsBetweenChords: 1,
                 minSameLaneGapMicros: 250_000,
+                minCrossLaneGapMicros: 150_000,
+                maxSimultaneousContacts: 2,
                 shortestHold: BeatFraction(1, 2)
             ),
             hard: ChartRule(
                 minAverageMilliNotesPerSecond: 3_500,
                 maxAverageMilliNotesPerSecond: 5_000,
                 maxPeakMilliNotesPerSecond: 7_000,
-                chords: .allowed,
-                minSameLaneGapMicros: 150_000,
+                maxChordNoteSharePercent: 20,
+                minBeatsBetweenChords: 0,
+                minSameLaneGapMicros: 180_000,
+                minCrossLaneGapMicros: 100_000,
+                maxSimultaneousContacts: 2,
                 shortestHold: BeatFraction(1, 2)
             ),
             expert: ChartRule(
                 minAverageMilliNotesPerSecond: 5_000,
                 maxAverageMilliNotesPerSecond: 7_000,
                 maxPeakMilliNotesPerSecond: 10_000,
-                chords: .allowed,
-                minSameLaneGapMicros: 90_000,
+                maxChordNoteSharePercent: 35,
+                minBeatsBetweenChords: 0,
+                minSameLaneGapMicros: 180_000,
+                minCrossLaneGapMicros: 70_000,
+                maxSimultaneousContacts: 2,
                 shortestHold: BeatFraction(1, 4)
             )
         )
@@ -99,9 +146,11 @@ extension GameConfig {
         /// Shortest song edit, in microseconds: 60 s (plan 8.2).
         public var minDurationMicros: Int64 = 60_000_000
 
-        /// Longest song edit, in microseconds: 120 s (plan 8.2). Section 4 describes a typical run as 60 to 90 s;
-        /// this is the hard limit.
-        public var maxDurationMicros: Int64 = 120_000_000
+        /// Longest song edit, in microseconds: 90 s (D-062).
+        public var maxDurationMicros: Int64 = 90_000_000
+
+        /// How far outside the two limits above the chart validator still accepts a song, in microseconds.
+        public var durationToleranceMicros: Int64 = 5_000_000
 
         /// Sample rates accepted for source audio, in hertz (plan 8.2).
         public var sourceSampleRatesHz = [44_100, 48_000]

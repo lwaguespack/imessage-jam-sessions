@@ -249,7 +249,10 @@ and is opaque. (D-022)
 
 ## 15. GameConfig changes required
 
-| Property | Now | Required | Why |
+Applied in task P1.0. The table is kept as the record of what changed from PLAN.md revision 1.
+`integrityKeyV1` is the SHA-256 of the ASCII text `riff-match-integrity-key-v1` (D-084).
+
+| Property | Was | Now | Why |
 | --- | --- | --- | --- |
 | `payload.playerIDHexCharacters` | `8` | `playerIDBytes 8` | D-010 |
 | `payload.matchIDCharacters` | `10` | `matchIDBytes 8` | D-015 |

@@ -25,6 +25,7 @@ two review areas (build and content/UX/legal) did not run. PLAN_REVIEW.md says w
 | D-052 | Ghost taps (a touch that matches no note) | Reset the streak; not counted as a Miss | Phase 1 |
 | D-058 | Retries on a challenge run | Allowed, counted, and shown on the card ("try 3") | Phase 1 (payload) |
 | D-062 | Song length | 60 to 90 seconds everywhere | Phase 5 |
+| D-090 | Slow songs: the Hype rules need about 107 beats, so a 60-second song needs about 107 BPM | Keep the rules; choose songs that fit | Phase 5 (and D-101) |
 | D-030 | Should the game play sound when the phone is on silent | Yes, once the player taps Play | Phase 2 |
 | D-034 | Wireless audio (AirPods) in duels | Allowed, with a calibration prompt and a "best on speaker or wired" note | Phase 2 |
 | D-070 | Sync progress through iCloud | No: device-only in v1, stated on the Profile screen | Phase 6 |
@@ -361,15 +362,95 @@ exactly-once XP (MATCH-20, adapted: written in Swift, since Swift now runs in ev
 ## Carried into the first tasks
 
 ### D-080 `GameConfig` still holds revision-1 values where a decision changed them
-**Decided.** The scaffold's `GameConfig` was written from PLAN.md revision 1. Task P1.0 applies the
-decided values (same-lane gaps, star shares, per-difficulty streak steps, ghost-tap rule, song
-length, payload limits, calibration and miss-duck settings) and adds `rulesVersion`, before any
-engine code is written. The list is in [plan/phase-1-core-rules.md](plan/phase-1-core-rules.md).
+**Decided; applied in task P1.0.** The scaffold's `GameConfig` was written from PLAN.md revision 1.
+Task P1.0 applied the decided values (same-lane gaps, star shares, per-difficulty streak steps,
+ghost-tap rule, song length, payload limits and miss-duck settings) and added `rulesVersion`, before
+any engine code was written. The calibration settings first listed here wait for Phase 2 (D-083).
+The list is in [plan/phase-1-core-rules.md](plan/phase-1-core-rules.md).
 
 ### D-081 The group-round concurrency test needs three Apple IDs
 **Decided.** The plan budgeted two test devices; the race in D-011 only shows with three members
 (MSG-1). Phase S asks for a third tester for one session.
 
 ### D-082 The two unfinished review areas are scheduled, not skipped
-**Decided.** The build/architecture and content/UX/legal reviews did not run. They are the first
-task of the next working session, before Phase 5 (content) planning is trusted.
+**Decided (by the owner).** The build/architecture and content/UX/legal reviews did not run. The
+build and architecture review runs once Phase 1 exists, so that there is real code to judge. Content,
+UX and legal wait for Phase 5 planning, which is not trusted before then.
+
+## Phase 1
+
+### D-083 Audio and timing tunables join `GameConfig` with the Phase 2 timing code
+**Decided.** D-080 listed calibration settings among the values for task P1.0, but neither spec table
+contains them, and `playback.driftCheckIntervalMicros` and `driftCorrectionThresholdMicros` still
+describe the clock that D-031 replaced. Phase 2 starts only after spike S1, which decides several of
+its rules, and nothing in Phase 1 reads these values. Task P2.0 adds the calibration, clock-filter and
+route settings and removes the two drift values.
+
+### D-084 The integrity key is the SHA-256 of a published label
+**Decided.** D-016 asks for a documented constant key per wire version. `payload.integrityKeyV1` is
+the SHA-256 of the ASCII text `riff-match-integrity-key-v1`, so its 32 bytes can be re-derived instead
+of trusted, and a test does that. A later wire version takes its own label.
+
+### D-085 The rules digest covers the judging, scoring, Hype and star values
+**Decided.** The test that pins scoring values to `rulesVersion` (D-008) takes SHA-256 over the
+canonical JSON of `rulesVersion` and the `judging`, `scoring`, `hype` and `stars` groups of
+`GameConfig`: the values the engine reads to judge and score a run (GAME_RULES sections 3 to 7).
+Chart limits, payload limits, XP and playback settings are outside it, so tuning them does not force
+a rules bump. `playback.inputGuardMicros` is outside because it only sets when the driver calls
+`advance`, which must not change a result (GAME_RULES section 2, rule 5). To keep `hype` to scoring
+values, the phrase-count limits (4 to 6 per chart) moved from `hype` to `charts`. A rule change that
+is not a config value is invisible to the digest and still needs the bump.
+
+### D-086 Tick-to-time conversion rounds up; time-to-tick rounds down
+**Decided.** GAME_RULES section 1.1 rounded both conversions down, so they disagreed: at 128 BPM and
+resolution 192, tick 48 converted to 117,187 µs, and that time converted back to tick 47. Read with
+the hold rules, a hold released at exactly its end time would have lost a tick of sustain. Now
+`time(tick)` rounds up and `tick(time)` rounds down, which makes `tick(t) >= k` hold exactly when
+`t >= time(k)`. Two ticks must never share a time, so a tempo map needs at least one microsecond per
+tick, and the chart validator limits `resolution` to 1 to 960: five times the default of 192, and
+still about 208 µs per tick at 300 BPM. A note's time can move by one microsecond, so `rulesVersion`
+becomes 2.
+
+### D-087 Manifest times are whole milliseconds
+**Decided.** PLAN.md appendix B gave `durationSec` and `previewStartSec` as decimal numbers beside an
+integer `audioOffsetMs`. They become `durationMs` and `previewStartMs`, so the chart validator
+compares a song's length in integers and no manifest value needs floating point. No manifest file
+exists yet, so nothing has to be converted.
+
+### D-088 Chart validation has two passes, and each rule has one stated measurement
+**Decided.** CHART_FORMAT.md section 4 gave limits without saying how to measure them, and several
+could be read two ways. The validator checks structure first (ranges, ordering, the tempo list) and
+reports only those issues when any fails: the other rules are stated in milliseconds, and times mean
+nothing while ticks or tempos are out of range. No tick may pass 456,000, where a 95-second song ends
+at 300 BPM and resolution 960, which also keeps the tick-to-time arithmetic inside `Int64`. The
+readings chosen:
+
+- Peak density counts a window that starts at a note and stops short of 1,000 ms later, so a steady
+  four notes a second peaks at 4, not 5.
+- The same-lane gap runs from a note's end, so after a hold it starts when the hold ends.
+- A hold is not a contact on the tick it ends on.
+- The song's beats, for the Hype capacity share, run from tick 0 to the latest end of any note.
+- A song id is 1 to 24 characters from `a` to `z`, `0` to `9` and `-`. MATCH_PROTOCOL.md allows 24
+  ASCII bytes; the narrower set keeps an id safe in a file name and in a URL.
+- A manifest passed to the validator must state a duration of 55,000 to 95,000 ms, the range
+  CHART_FORMAT.md section 5 already gave.
+
+Nine limits that were prose became `GameConfig` properties in `charts` and `songs`. They are outside
+the rules digest (D-085), so `rulesVersion` stays 2.
+
+### D-089 Chart files are read strictly and written canonically
+**Decided.** `ChartDecoder` refuses a file with a missing field, a wrong type, a field the format
+does not define, an explicit `null`, or a number that is not whole. Swift's decoder ignores unknown
+keys, so a misspelt `length` would have turned a hold into a tap, and changed the chart's hash,
+without a word. `riffcli chart compute` rewrites the whole file as canonical JSON, so a chart has one
+byte form and a diff shows only real changes; a file that fails validation is left untouched. The
+hash's `rules=` line is the engine's `rulesVersion`, not the number stored in the file, so a chart
+computed under older rules is reported as out of date instead of passing.
+
+### D-090 Slow songs cannot pass the Hype rules
+**Owner.** A chart needs 4 to 6 Hype phrases, and their capacity (8 beats each) may be at most 30% of
+the song's beats, so a chart needs at least 106 2/3 beats: a song whose notes end at 60 seconds must
+average about 107 BPM, and one at 90 seconds about 71 BPM. Tempos down to 40 BPM are allowed, so a
+slow song passes the tempo rule and can never pass the Hype rules. Both numbers come from the gameplay
+review, which had no skeptic pass. The default keeps them and chooses launch songs that fit (D-101).
+The alternatives are fewer phrases for short or slow songs, or a larger share.

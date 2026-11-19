@@ -47,23 +47,24 @@ struct GameConfigJSONTests {
         #expect(!text.hasSuffix("\n\n"))
     }
 
-    @Test("Top-level keys are the config's groups, in sorted order")
+    @Test("Top-level keys are the rules version and the config's groups, in sorted order")
     func topLevelKeysAreTheGroups() throws {
         let expected = [
-            "budgets", "charts", "highway", "hype", "judging", "levels", "payload", "playback", "scoring", "songs",
-            "stars", "unlocks", "xp",
+            "budgets", "charts", "highway", "hype", "judging", "levels", "match", "payload", "playback",
+            "rulesVersion", "scoring", "songs", "stars", "unlocks", "xp",
         ]
         #expect(topLevelKeys(of: try canonicalText(.standard)) == expected)
     }
 
-    @Test("Times, percentages and fractions appear as the integers the plan's tables imply")
-    func valuesAppearAsIntegers() throws {
+    @Test("Times, percentages, fractions and choices appear as the integers and names the specs' tables imply")
+    func valuesAppearAsWritten() throws {
         let text = try canonicalText(.standard)
+        #expect(text.contains("\"rulesVersion\": 2"))
         #expect(text.contains("\"windowMicros\": 45000"))
-        #expect(text.contains("\"minSameLaneGapMicros\": 90000"))
+        #expect(text.contains("\"minSameLaneGapMicros\": 180000"))
         #expect(text.contains("\"maxAverageMilliNotesPerSecond\": 3500"))
         #expect(text.contains("\"featuredSongPercent\": 150"))
-        #expect(text.contains("\"chords\": \"forbidden\""))
+        #expect(text.contains("\"easy\": \"resetStreak\""))
         #expect(text.contains("\"denominator\": 4"))
         #expect(!text.contains("."))
     }
@@ -72,8 +73,9 @@ struct GameConfigJSONTests {
     func changedConfigRoundTrips() throws {
         var tuned = GameConfig.standard
         tuned.judging.perfect.windowMicros = 40_000
-        tuned.stars.thresholdsPercent = [15, 35, 55, 75, 90]
-        tuned.charts.rules.medium.chords = .forbidden
+        tuned.judging.ghostTapPenalty.easy = .none
+        tuned.stars.sharesPercent.easy = [15, 35, 55, 75, 90]
+        tuned.charts.rules.medium.maxChordNoteSharePercent = 0
         tuned.highway.scrollTimeMicros.hard = 1_300_000
 
         let data = try CanonicalJSON.encode(tuned)
@@ -84,8 +86,8 @@ struct GameConfigJSONTests {
     }
 
     @Test(
-        "Decoding refuses a config with a group missing, rather than filling in a default",
-        arguments: ["hype", "judging", "xp"]
+        "Decoding refuses a config with a top-level key missing, rather than filling in a default",
+        arguments: ["hype", "judging", "match", "rulesVersion", "xp"]
     )
     func decodingRequiresEveryGroup(missing: String) throws {
         let data = try JSONEncoder().encode(GameConfig.standard)

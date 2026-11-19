@@ -33,12 +33,13 @@ All paths below are under `Packages/RiffCore/Sources/RiffCore/` unless they star
 
 ## P1.0 Apply the decided values
 
-The scaffold's `GameConfig` holds PLAN.md revision 1 values. (D-080)
+**Done.** The scaffold's `GameConfig` held PLAN.md revision 1 values. (D-080)
 
 - Apply the tables "GameConfig changes required" in GAME_RULES.md section 12 and MATCH_PROTOCOL.md
   section 15.
 - Add `rulesVersion = 1` and `Tests/.../RulesVersionTests.swift`: a digest of the scoring-relevant
-  values is pinned to the version, so changing a value without bumping it fails.
+  values is pinned to the version, so changing a value without bumping it fails. The digest needs
+  `Crypto/SHA256.swift`, so that file and its tests land here, not in P1.2. (D-085)
 - Run `scripts/sync-config-snapshot.sh`; update `tools/tests` for the changed values.
 - Add `scripts/coverage-core.sh` (line coverage per file for `Sources/RiffCore`, fails under a
   threshold); the phase gate uses it.
@@ -46,6 +47,9 @@ The scaffold's `GameConfig` holds PLAN.md revision 1 values. (D-080)
 **Done when:** `scripts/check.sh` passes and the snapshot is committed.
 
 ## P1.1 Models and the tempo map
+
+**Done.** Section 1.1 of GAME_RULES.md was corrected first: tick-to-time conversion rounds up (D-086).
+Manifest times are whole milliseconds (D-087).
 
 | File | Contents |
 | --- | --- |
@@ -55,21 +59,33 @@ The scaffold's `GameConfig` holds PLAN.md revision 1 values. (D-080)
 | `Chart/CompiledChart.swift` | Notes with precomputed times, miss deadlines, hold ends, phrase membership |
 
 Tests: conversion round trips at segment boundaries; a two-tempo map checked against hand-computed
-microseconds; negative time; `Int64` headroom at 400 BPM and 2 minutes.
+microseconds; negative time; `Int64` headroom at the validator's limits (300 BPM, resolution 960).
 
 ## P1.2 Chart decoding, validation and hash
 
+**Done.** CHART_FORMAT.md sections 1 to 4 were pinned first: strict reading and canonical writing
+(D-089), and how each validation rule is measured (D-088). One consequence is the owner's call: slow
+songs cannot pass the Hype rules (D-090).
+
 | File | Contents |
 | --- | --- |
-| `Chart/ChartDecoder.swift` | Strict JSON decode; rejects unknown format or version |
-| `Chart/ChartValidator.swift` | Every rule in CHART_FORMAT.md section 4, returning a list of issues with tick and lane |
-| `Crypto/SHA256.swift`, `Crypto/HMACSHA256.swift` | Pure Swift (no CryptoKit on Linux). Tested with the published FIPS 180-4 and RFC 4231 vectors; on Apple platforms a test compares against CryptoKit |
-| `Chart/ChartHash.swift` | The canonical string and hash (CHART_FORMAT.md section 2) |
+| `Chart/ChartDecoder.swift` | Strict JSON decode; rejects unknown format or version, unknown fields, fractions and `null` |
+| `Chart/ChartValidator.swift` and its two extensions, `Chart/ChartIssue.swift` | Every rule in CHART_FORMAT.md section 4, returning a list of issues with rule, tick and lane |
+| `Chart/ChartComputation.swift` | The computed values, and which stored ones are stale |
+| `Crypto/HMACSHA256.swift` | Pure Swift (no CryptoKit on Linux), built on the `Crypto/SHA256.swift` from P1.0. Tested with the published RFC 4231 vectors; on Apple platforms a test compares against CryptoKit |
+| `Chart/ChartHash.swift`, `Support/Hex.swift` | The canonical string and hash (CHART_FORMAT.md section 2) |
 | `riffcli/Commands/ChartCommand.swift` | `riffcli chart check <file>` and `riffcli chart compute <file>` |
 
-Tests: one failing fixture per validation rule; a passing example chart under
-`Tests/RiffCoreTests/Fixtures/`; hash stability; the hash ignores `sections` and changes with any
-note.
+Tests: one failing change per validation rule, each made to an example chart that a builder in the
+test target produces and that is committed as `Tests/RiffCoreTests/Fixtures/example-medium.json`; hash
+stability; the hash ignores `sections` and changes with any note.
+
+Left for later tasks:
+
+- `compute` writes `rulesVersion`, `noteCount` and `hash`, and carries the scores over until P1.6
+  computes them. Regenerate the fixture then (the command is in `CLAUDE.md`).
+- No command passes a manifest to the validator yet (CHART_FORMAT.md section 7).
+- `scripts/check.sh` runs `chart check` on the example chart; CI gets that step at the phase gate.
 
 ## P1.3 Judge
 
@@ -150,7 +166,8 @@ Tests: as listed in MATCH_PROTOCOL.md section 14.
 ## Done when
 
 - `scripts/check.sh` passes locally and CI is green on Linux and macOS.
-- Line coverage is at least 90% on `Engine/`, `Match/` and `Progression/` (`scripts/coverage-core.sh`).
+- Line coverage is at least 90% on each of `Engine/`, `Match/` and `Progression/`, counted over the
+  whole directory (`scripts/coverage-core.sh --min 90 Engine Match Progression`).
 - The conversation simulator converges for 1,000 seeds with no lost entry and exactly-once bonus XP.
 - The masher bot never earns a Full Combo on the example chart and scores below the casual bot.
 - `riffcli chart check` passes on the example chart, and `riffcli payload inspect` round-trips the

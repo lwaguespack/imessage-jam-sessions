@@ -67,14 +67,29 @@ extension GameConfig {
         /// Scale applied to every window, per difficulty, in percent. Easy widens every window by 20% (plan 4.3).
         public var windowScalePercent = PerDifficulty(easy: 120, medium: 100, hard: 100, expert: 100)
 
-        /// Points taken away by a touch that matches no note. Nothing in v1 (plan 4.3).
-        public var ghostTapPenaltyPoints = 0
+        /// What a touch that matches no note costs, per difficulty (D-052).
+        public var ghostTapPenalty = PerDifficulty<GhostTapPenalty>(
+            easy: .resetStreak,
+            medium: .resetStreak,
+            hard: .resetStreak,
+            expert: .resetStreak
+        )
+
+        /// A touch this soon after a hit in the same lane is ignored instead of counted as a ghost tap (D-052).
+        public var bounceGraceMicros: Int64 = 80_000
+    }
+
+    /// What a touch that matches no note costs (D-052). It is never a Miss.
+    public enum GhostTapPenalty: String, CaseIterable, Codable, Sendable {
+        case none
+        case dropTier
+        case resetStreak
     }
 
     /// Streak multiplier and sustain points (plan 4.4).
     public struct Scoring: Codable, Equatable, Sendable {
-        /// Streak length that adds one step to the multiplier: m = 1 + floor(streak / 10) (plan 4.4).
-        public var streakPerMultiplierStep = 10
+        /// Streak length that adds one step to the multiplier, per difficulty: m = 1 + floor(streak / step) (D-053).
+        public var streakPerMultiplierStep = PerDifficulty(easy: 4, medium: 6, hard: 8, expert: 10)
 
         /// Highest streak multiplier, before Hype (plan 4.4).
         public var maxStreakMultiplier = 4
@@ -102,18 +117,18 @@ extension GameConfig {
 
         /// Factor applied to the streak multiplier while active (plan 4.4, 4.5).
         public var multiplier = 2
-
-        /// Fewest Hype phrases a chart carries (plan 4.5).
-        public var minPhrasesPerSong = 4
-
-        /// Most Hype phrases a chart carries (plan 4.5).
-        public var maxPhrasesPerSong = 6
     }
 
     /// Star thresholds and the Gold rule (plan 4.6).
     public struct Stars: Codable, Equatable, Sendable {
-        /// Score needed for each star, 1 to 5 in order, as a percentage of the chart's base score (plan 4.6).
-        public var thresholdsPercent = [20, 40, 60, 80, 95]
+        /// Score needed for each star, 1 to 5 in order, as a percentage of the chart's base score, per difficulty
+        /// (D-053).
+        public var sharesPercent = PerDifficulty(
+            easy: [10, 25, 45, 65, 85],
+            medium: [10, 25, 45, 65, 85],
+            hard: [10, 25, 45, 65, 85],
+            expert: [10, 25, 45, 65, 85]
+        )
 
         /// Stars a run needs, together with a Full Combo, to count as Gold (plan 4.6).
         public var goldMinimumStars = 5
@@ -134,13 +149,27 @@ extension GameConfig {
         /// Beats counted in before play resumes after a pause (plan 4.7).
         public var resumeCountdownBeats = 3
 
-        /// How long a miss ducks the instrument stem, in microseconds (plan 4.8).
-        public var missDuckMicros: Int64 = 300_000
+        /// How far behind real time the driver advances the engine, in microseconds, so a touch that is delivered
+        /// late is never swept as a miss first (D-050).
+        public var inputGuardMicros: Int64 = 50_000
+
+        /// Shortest time a miss ducks the instrument stem, in microseconds; the duck ends at the next hit (D-038).
+        public var missDuckMinMicros: Int64 = 120_000
+
+        /// Longest time a miss ducks the instrument stem, in microseconds (D-038).
+        public var missDuckMaxMicros: Int64 = 600_000
 
         /// How often the clock estimate is compared with the rendered sample time, in microseconds (plan 7.3).
         public var driftCheckIntervalMicros: Int64 = 1_000_000
 
         /// Clock drift beyond this many microseconds is corrected gradually (plan 7.3).
         public var driftCorrectionThresholdMicros: Int64 = 3_000
+    }
+}
+
+extension GameConfig.Judging {
+    /// Half-width of a judgement's window on a difficulty, in microseconds, rounded down (GAME_RULES section 3).
+    public func windowMicros(of rule: GameConfig.JudgementRule, on difficulty: Difficulty) -> Int64 {
+        rule.windowMicros * Int64(windowScalePercent[difficulty]) / 100
     }
 }

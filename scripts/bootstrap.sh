@@ -24,7 +24,8 @@ if ! command -v xcodegen >/dev/null 2>&1; then
         exit 1
     fi
     echo "bootstrap: installing XcodeGen with Homebrew"
-    brew install xcodegen
+    # Otherwise the install can run Homebrew's periodic cleanup, which removes unrelated packages.
+    HOMEBREW_NO_INSTALL_CLEANUP=1 brew install xcodegen
 fi
 
 if [[ ! -f Config/Local.xcconfig ]]; then
