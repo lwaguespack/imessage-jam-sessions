@@ -26,7 +26,7 @@ struct RulesVersionTests {
 
     /// SHA-256, in hex, of the canonical JSON of the scoring values.
     private func digest(of config: GameConfig) throws -> String {
-        hex(SHA256.hash(Array(try CanonicalJSON.encode(ScoringRules(config)))))
+        Hex.encode(SHA256.hash(Array(try CanonicalJSON.encode(ScoringRules(config)))))
     }
 
     @Test("The scoring values are the ones pinned to the current rules version")

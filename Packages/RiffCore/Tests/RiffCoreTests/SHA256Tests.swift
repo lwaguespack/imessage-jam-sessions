@@ -5,18 +5,10 @@ import Testing
     import CryptoKit
 #endif
 
-/// Lowercase hex, for comparing digests with published values.
-func hex(_ bytes: [UInt8]) -> String {
-    bytes.map { byte in
-        let digits = String(byte, radix: 16)
-        return digits.count == 1 ? "0" + digits : digits
-    }.joined()
-}
-
 @Suite("SHA-256")
 struct SHA256Tests {
     private func digest(_ text: String) -> String {
-        hex(RiffCore.SHA256.hash(Array(text.utf8)))
+        Hex.encode(RiffCore.SHA256.hash(Array(text.utf8)))
     }
 
     @Test("The example messages in FIPS 180-4 hash to their published digests")
@@ -47,15 +39,14 @@ struct SHA256Tests {
         ]
     )
     func paddingBoundaries(length: Int, expected: String) {
-        #expect(hex(RiffCore.SHA256.hash([UInt8](repeating: 0x61, count: length))) == expected)
+        #expect(Hex.encode(RiffCore.SHA256.hash([UInt8](repeating: 0x61, count: length))) == expected)
     }
 
     @Test("One million repetitions of 'a' hash to the published digest")
     func oneMillionBytes() {
         let message = [UInt8](repeating: 0x61, count: 1_000_000)
-        #expect(
-            hex(RiffCore.SHA256.hash(message)) == "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"
-        )
+        let hexDigest = Hex.encode(RiffCore.SHA256.hash(message))
+        #expect(hexDigest == "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0")
     }
 
     @Test("A digest is always 32 bytes")

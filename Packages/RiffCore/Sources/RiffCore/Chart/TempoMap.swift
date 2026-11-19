@@ -29,7 +29,7 @@ public struct TempoMap: Equatable, Sendable {
     }
 
     /// Microseconds per minute, times the 1,000 in milli-BPM.
-    private static let scale: Int64 = 60_000_000_000
+    static let scale: Int64 = 60_000_000_000
 
     /// Ticks per quarter note.
     public let resolution: Int

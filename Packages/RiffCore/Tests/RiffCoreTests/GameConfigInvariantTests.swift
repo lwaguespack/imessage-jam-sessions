@@ -178,6 +178,23 @@ struct GameConfigInvariantTests {
         }
     }
 
+    @Test("Chart-wide limits make sense together")
+    func chartWideLimitsAreSane() {
+        let charts = config.charts
+        #expect(charts.maxTicksPerBeat >= charts.defaultTicksPerBeat)
+        #expect(charts.minTempoMilliBPM > 0)
+        #expect(charts.minTempoMilliBPM < charts.maxTempoMilliBPM)
+        // A tick must last at least a microsecond, or two ticks could share a time (D-086).
+        #expect(Int64(charts.maxTempoMilliBPM) * Int64(charts.maxTicksPerBeat) <= 60_000_000_000)
+        #expect(charts.peakWindowMicros > 0)
+        #expect(charts.minNotesPerPhrase > 0)
+        #expect(charts.minBeatsAfterLastPhrase > 0)
+        #expect((1...100).contains(charts.maxHypeCapacitySharePercent))
+        #expect(Difficulty.allCases.map { charts.rules[$0].minBeatsBetweenChords } == [0, 1, 0, 0])
+        #expect(config.songs.durationToleranceMicros >= 0)
+        #expect(config.songs.durationToleranceMicros < config.songs.minDurationMicros)
+    }
+
     @Test("Payload limits are positive and agree with each other")
     func payloadLimitsAreConsistent() {
         let payload = config.payload

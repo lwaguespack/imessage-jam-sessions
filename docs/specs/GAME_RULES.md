@@ -163,6 +163,7 @@ minimum `16R`. (D-055)
 - **R7.** Chart rules: phrases sorted and non-overlapping; at least 4 member notes; both notes of a
   chord in the same phrase; the last phrase ends at least 16 beats before the final note; total
   capacity (`8` beats times the phrase count) at most 30% of the song's beats.
+  [CHART_FORMAT.md](CHART_FORMAT.md) section 4.2 says how each is measured.
 
 ## 7. Score and results
 
@@ -248,9 +249,10 @@ casual bot's median.
 Applied in task P1.0. The table is kept as the record of what changed from PLAN.md revision 1.
 
 - The chart-rule row covers the three limits it names. The other limits in
-  [CHART_FORMAT.md](CHART_FORMAT.md) section 4 that have no `GameConfig` property yet (tempo bounds,
-  phrase membership and placement, chord spacing on Medium, the peak window's length, the manifest's
-  duration slack) are added with the validator in task P1.2.
+  [CHART_FORMAT.md](CHART_FORMAT.md) section 4 that had no `GameConfig` property (tempo bounds, the
+  finest resolution, phrase membership and placement, the Hype capacity share, chord spacing on
+  Medium, the peak window's length, the manifest's duration tolerance) were added with the validator
+  in task P1.2 (D-088).
 - The phrase-count limits (4 to 6 per chart) moved from `hype` to `charts`, so `hype` holds scoring
   values only (D-085).
 

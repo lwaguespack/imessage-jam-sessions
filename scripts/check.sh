@@ -21,6 +21,8 @@ step() {
 step "Swift formatting" scripts/swiftw format lint --strict --recursive Packages RiffMessages
 step "RiffCore tests" scripts/test-core.sh
 step "Tunables snapshot is current" scripts/sync-config-snapshot.sh --check
+step "Example chart is valid" scripts/swiftw run --package-path Packages/RiffCore riffcli chart check \
+    Packages/RiffCore/Tests/RiffCoreTests/Fixtures/example-medium.json
 step "Python tools" scripts/test-tools.sh
 step "Icon set is complete" python3 scripts/make-placeholder-icons.py --check
 

@@ -25,6 +25,7 @@ two review areas (build and content/UX/legal) did not run. PLAN_REVIEW.md says w
 | D-052 | Ghost taps (a touch that matches no note) | Reset the streak; not counted as a Miss | Phase 1 |
 | D-058 | Retries on a challenge run | Allowed, counted, and shown on the card ("try 3") | Phase 1 (payload) |
 | D-062 | Song length | 60 to 90 seconds everywhere | Phase 5 |
+| D-090 | Slow songs: the Hype rules need about 107 beats, so a 60-second song needs about 107 BPM | Keep the rules; choose songs that fit | Phase 5 (and D-101) |
 | D-030 | Should the game play sound when the phone is on silent | Yes, once the player taps Play | Phase 2 |
 | D-034 | Wireless audio (AirPods) in duels | Allowed, with a calibration prompt and a "best on speaker or wired" note | Phase 2 |
 | D-070 | Sync progress through iCloud | No: device-only in v1, stated on the Profile screen | Phase 6 |
@@ -415,3 +416,41 @@ becomes 2.
 integer `audioOffsetMs`. They become `durationMs` and `previewStartMs`, so the chart validator
 compares a song's length in integers and no manifest value needs floating point. No manifest file
 exists yet, so nothing has to be converted.
+
+### D-088 Chart validation has two passes, and each rule has one stated measurement
+**Decided.** CHART_FORMAT.md section 4 gave limits without saying how to measure them, and several
+could be read two ways. The validator checks structure first (ranges, ordering, the tempo list) and
+reports only those issues when any fails: the other rules are stated in milliseconds, and times mean
+nothing while ticks or tempos are out of range. No tick may pass 456,000, where a 95-second song ends
+at 300 BPM and resolution 960, which also keeps the tick-to-time arithmetic inside `Int64`. The
+readings chosen:
+
+- Peak density counts a window that starts at a note and stops short of 1,000 ms later, so a steady
+  four notes a second peaks at 4, not 5.
+- The same-lane gap runs from a note's end, so after a hold it starts when the hold ends.
+- A hold is not a contact on the tick it ends on.
+- The song's beats, for the Hype capacity share, run from tick 0 to the latest end of any note.
+- A song id is 1 to 24 characters from `a` to `z`, `0` to `9` and `-`. MATCH_PROTOCOL.md allows 24
+  ASCII bytes; the narrower set keeps an id safe in a file name and in a URL.
+- A manifest passed to the validator must state a duration of 55,000 to 95,000 ms, the range
+  CHART_FORMAT.md section 5 already gave.
+
+Nine limits that were prose became `GameConfig` properties in `charts` and `songs`. They are outside
+the rules digest (D-085), so `rulesVersion` stays 2.
+
+### D-089 Chart files are read strictly and written canonically
+**Decided.** `ChartDecoder` refuses a file with a missing field, a wrong type, a field the format
+does not define, an explicit `null`, or a number that is not whole. Swift's decoder ignores unknown
+keys, so a misspelt `length` would have turned a hold into a tap, and changed the chart's hash,
+without a word. `riffcli chart compute` rewrites the whole file as canonical JSON, so a chart has one
+byte form and a diff shows only real changes; a file that fails validation is left untouched. The
+hash's `rules=` line is the engine's `rulesVersion`, not the number stored in the file, so a chart
+computed under older rules is reported as out of date instead of passing.
+
+### D-090 Slow songs cannot pass the Hype rules
+**Owner.** A chart needs 4 to 6 Hype phrases, and their capacity (8 beats each) may be at most 30% of
+the song's beats, so a chart needs at least 106 2/3 beats: a song whose notes end at 60 seconds must
+average about 107 BPM, and one at 90 seconds about 71 BPM. Tempos down to 40 BPM are allowed, so a
+slow song passes the tempo rule and can never pass the Hype rules. Both numbers come from the gameplay
+review, which had no skeptic pass. The default keeps them and chooses launch songs that fit (D-101).
+The alternatives are fewer phrases for short or slow songs, or a larger share.

@@ -19,6 +19,7 @@ duels, group rounds and an XP meta, no server. Every game rule lives in the pure
 | `scripts/test-tools.sh` | While working on `tools/`. |
 | `scripts/swiftw format --in-place --recursive Packages RiffMessages` | Before committing Swift. |
 | `scripts/sync-config-snapshot.sh` | After any change to `GameConfig`. Commit the result. |
+| `RIFF_WRITE_FIXTURES=1 scripts/test-core.sh --filter fileMatchesTheBuilder` | After a change to the example chart or to `rulesVersion`: rewrites the chart fixture. Commit the result. |
 | `scripts/coverage-core.sh [--min N Dir...]` | Line coverage of `RiffCore`, file by file; `--min` enforces it per directory. |
 | `scripts/bootstrap.sh` | macOS only: generates `Riff.xcodeproj`. |
 

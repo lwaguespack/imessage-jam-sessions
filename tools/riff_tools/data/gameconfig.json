@@ -10,9 +10,16 @@
   },
   "charts": {
     "defaultTicksPerBeat": 192,
+    "maxHypeCapacitySharePercent": 30,
     "maxPhrasesPerSong": 6,
+    "maxTempoMilliBPM": 300000,
+    "maxTicksPerBeat": 960,
+    "minBeatsAfterLastPhrase": 16,
     "minHoldMicros": 250000,
+    "minNotesPerPhrase": 4,
     "minPhrasesPerSong": 4,
+    "minTempoMilliBPM": 40000,
+    "peakWindowMicros": 1000000,
     "rules": {
       "easy": {
         "maxAverageMilliNotesPerSecond": 2000,
@@ -20,6 +27,7 @@
         "maxPeakMilliNotesPerSecond": 3000,
         "maxSimultaneousContacts": 1,
         "minAverageMilliNotesPerSecond": 1000,
+        "minBeatsBetweenChords": 0,
         "minCrossLaneGapMicros": 250000,
         "minSameLaneGapMicros": 400000,
         "shortestHold": {
@@ -33,6 +41,7 @@
         "maxPeakMilliNotesPerSecond": 10000,
         "maxSimultaneousContacts": 2,
         "minAverageMilliNotesPerSecond": 5000,
+        "minBeatsBetweenChords": 0,
         "minCrossLaneGapMicros": 70000,
         "minSameLaneGapMicros": 180000,
         "shortestHold": {
@@ -46,6 +55,7 @@
         "maxPeakMilliNotesPerSecond": 7000,
         "maxSimultaneousContacts": 2,
         "minAverageMilliNotesPerSecond": 3500,
+        "minBeatsBetweenChords": 0,
         "minCrossLaneGapMicros": 100000,
         "minSameLaneGapMicros": 180000,
         "shortestHold": {
@@ -59,6 +69,7 @@
         "maxPeakMilliNotesPerSecond": 5000,
         "maxSimultaneousContacts": 2,
         "minAverageMilliNotesPerSecond": 2000,
+        "minBeatsBetweenChords": 1,
         "minCrossLaneGapMicros": 150000,
         "minSameLaneGapMicros": 250000,
         "shortestHold": {
@@ -199,6 +210,7 @@
   },
   "songs": {
     "artworkPixels": 1024,
+    "durationToleranceMicros": 5000000,
     "maxDurationMicros": 90000000,
     "minDurationMicros": 60000000,
     "sourceSampleRatesHz": [
