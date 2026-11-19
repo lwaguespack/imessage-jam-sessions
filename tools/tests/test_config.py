@@ -25,7 +25,7 @@ def test_values_match_the_plan():
 
 
 def test_values_match_the_decisions():
-    assert config.get("rulesVersion") == 1
+    assert config.get("rulesVersion") == 2
     steps = [config.get(f"scoring.streakPerMultiplierStep.{d}") for d in config.DIFFICULTIES]
     assert steps == [4, 6, 8, 10]
     gaps = [config.chart_rules(d)["minSameLaneGapMicros"] for d in config.DIFFICULTIES]

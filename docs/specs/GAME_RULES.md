@@ -21,14 +21,25 @@ The tempo map is a list of segments `(startTick, mbpm)`, sorted, the first at ti
 the start time of segment `i` in microseconds, with `S_0 = 0`.
 
 ```text
-time(tick)  = S_i + floor((tick - startTick_i) * 60_000_000_000 / (mbpm_i * resolution))
+time(tick)  = S_i + ceil((tick - startTick_i) * 60_000_000_000 / (mbpm_i * resolution))
 S_(i+1)     = time(startTick_(i+1)) evaluated in segment i
 tick(time)  = startTick_i + floor((time - S_i) * mbpm_i * resolution / 60_000_000_000)
 ```
 
-`i` is the last segment whose start is at or before the argument. For times before 0, segment 0 is
-extended backwards. All intermediate products fit in `Int64` for songs up to 2 minutes and tempos up
-to 400 BPM; the chart validator enforces those limits.
+`i` is the last segment whose start, as a tick or as a time, is at or before the argument. For ticks
+and times before 0, segment 0 is extended backwards. `ceil` and `floor` round toward plus and minus
+infinity, for negative values too.
+
+`time` rounds up and `tick` rounds down so that the two agree: `tick(t) >= k` exactly when
+`t >= time(k)`. So `tick(t)` is the last tick whose time is at or before `t`. As long as every tick
+lasts at least one microsecond (`mbpm * resolution <= 60_000_000_000`; the tempo map refuses
+anything else), no two ticks share a time and `tick(time(k)) = k`: an event scheduled at a tick's
+time is at that tick. Rounding both down, as this section first did, breaks that: at 128 BPM and
+resolution 192, `time(48)` was 117,187 µs and `tick(117187)` was 47. (D-086)
+
+The chart validator's limits ([CHART_FORMAT.md](CHART_FORMAT.md) section 4: tempo at most 300 BPM,
+resolution at most 960) keep every intermediate product inside `Int64` for more than 8 hours either
+side of zero.
 
 The chart compiler converts every note to `(lane, time, tick, endTick?)` once, when a song loads.
 
@@ -197,6 +208,11 @@ The digest is SHA-256 over the canonical JSON of `rulesVersion` and the `judging
 and `stars` groups of `GameConfig`. It cannot see a rule that is not a config value: changing such a
 rule still needs the bump. (D-085)
 
+| Version | What changed |
+| --- | --- |
+| 1 | The rules as first written, with the values applied in task P1.0. |
+| 2 | Tick-to-time conversion rounds up (section 1.1, D-086). |
+
 ## 10. Bots and the simulator
 
 `RiffCore` ships a seeded generator (SplitMix64); every bot takes a seed and reports it. `riffcli
@@ -238,9 +254,9 @@ Applied in task P1.0. The table is kept as the record of what changed from PLAN.
 - The phrase-count limits (4 to 6 per chart) moved from `hype` to `charts`, so `hype` holds scoring
   values only (D-085).
 
-| Property | Was | Now | Why |
+| Property | Revision 1 | Set in P1.0 | Why |
 | --- | --- | --- | --- |
-| `rulesVersion` | absent | `1` | D-008 |
+| `rulesVersion` | absent | `1` (section 9 lists the versions since) | D-008 |
 | `scoring.streakPerMultiplierStep` | `10` | per difficulty `4, 6, 8, 10` | D-053 |
 | `judging.ghostTapPenaltyPoints` | `0` | replace with `ghostTapPenalty` per difficulty, `resetStreak` | D-052 |
 | `judging.bounceGraceMicros` | absent | `80000` | D-052 |

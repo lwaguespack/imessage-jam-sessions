@@ -29,6 +29,16 @@ struct GameConfigInvariantTests {
         #expect(config.judging.windowScalePercent == PerDifficulty(easy: 120, medium: 100, hard: 100, expert: 100))
     }
 
+    @Test("Scaled windows are 54, 108 and 156 ms on Easy and the base values elsewhere")
+    func scaledWindows() {
+        let judging = config.judging
+        let rules = [judging.perfect, judging.great, judging.good]
+        #expect(rules.map { judging.windowMicros(of: $0, on: .easy) } == [54_000, 108_000, 156_000])
+        for difficulty in [Difficulty.medium, .hard, .expert] {
+            #expect(rules.map { judging.windowMicros(of: $0, on: difficulty) } == [45_000, 90_000, 130_000])
+        }
+    }
+
     @Test("Points and accuracy weights never rise from Perfect to Good")
     func pointsNeverRise() {
         let judging = config.judging

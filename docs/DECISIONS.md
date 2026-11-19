@@ -399,3 +399,19 @@ a rules bump. `playback.inputGuardMicros` is outside because it only sets when t
 `advance`, which must not change a result (GAME_RULES section 2, rule 5). To keep `hype` to scoring
 values, the phrase-count limits (4 to 6 per chart) moved from `hype` to `charts`. A rule change that
 is not a config value is invisible to the digest and still needs the bump.
+
+### D-086 Tick-to-time conversion rounds up; time-to-tick rounds down
+**Decided.** GAME_RULES section 1.1 rounded both conversions down, so they disagreed: at 128 BPM and
+resolution 192, tick 48 converted to 117,187 µs, and that time converted back to tick 47. Read with
+the hold rules, a hold released at exactly its end time would have lost a tick of sustain. Now
+`time(tick)` rounds up and `tick(time)` rounds down, which makes `tick(t) >= k` hold exactly when
+`t >= time(k)`. Two ticks must never share a time, so a tempo map needs at least one microsecond per
+tick, and the chart validator limits `resolution` to 1 to 960: five times the default of 192, and
+still about 208 µs per tick at 300 BPM. A note's time can move by one microsecond, so `rulesVersion`
+becomes 2.
+
+### D-087 Manifest times are whole milliseconds
+**Decided.** PLAN.md appendix B gave `durationSec` and `previewStartSec` as decimal numbers beside an
+integer `audioOffsetMs`. They become `durationMs` and `previewStartMs`, so the chart validator
+compares a song's length in integers and no manifest value needs floating point. No manifest file
+exists yet, so nothing has to be converted.

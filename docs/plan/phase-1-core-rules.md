@@ -48,6 +48,9 @@ All paths below are under `Packages/RiffCore/Sources/RiffCore/` unless they star
 
 ## P1.1 Models and the tempo map
 
+**Done.** Section 1.1 of GAME_RULES.md was corrected first: tick-to-time conversion rounds up (D-086).
+Manifest times are whole milliseconds (D-087).
+
 | File | Contents |
 | --- | --- |
 | `Model/Chart.swift` | `Chart`, `Note` (tick, lane, length), `HypePhrase`, `TempoSegment` (tick, mbpm), `ChartComputed` |
@@ -56,7 +59,7 @@ All paths below are under `Packages/RiffCore/Sources/RiffCore/` unless they star
 | `Chart/CompiledChart.swift` | Notes with precomputed times, miss deadlines, hold ends, phrase membership |
 
 Tests: conversion round trips at segment boundaries; a two-tempo map checked against hand-computed
-microseconds; negative time; `Int64` headroom at 400 BPM and 2 minutes.
+microseconds; negative time; `Int64` headroom at the validator's limits (300 BPM, resolution 960).
 
 ## P1.2 Chart decoding, validation and hash
 

@@ -166,3 +166,10 @@ extension GameConfig {
         public var driftCorrectionThresholdMicros: Int64 = 3_000
     }
 }
+
+extension GameConfig.Judging {
+    /// Half-width of a judgement's window on a difficulty, in microseconds, rounded down (GAME_RULES section 3).
+    public func windowMicros(of rule: GameConfig.JudgementRule, on difficulty: Difficulty) -> Int64 {
+        rule.windowMicros * Int64(windowScalePercent[difficulty]) / 100
+    }
+}

@@ -21,8 +21,8 @@ struct RulesVersionTests {
         }
     }
 
-    private static let pinnedVersion = 1
-    private static let pinnedDigest = "b642ea371732a3803529b0e331d7c7844963d33243670249b69efb40db01cbf8"
+    private static let pinnedVersion = 2
+    private static let pinnedDigest = "62b27e232f2e4a00644934b2c2bf235b5db3f2d2b01e95dde24401203c557b50"
 
     /// SHA-256, in hex, of the canonical JSON of the scoring values.
     private func digest(of config: GameConfig) throws -> String {

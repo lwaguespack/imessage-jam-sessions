@@ -10,7 +10,7 @@ in what order, and how to tell it is done. The specs in [../specs/](../specs/) h
 | --- | --- | --- |
 | 0 Foundations | Below | Done except the owner's steps |
 | S Device spike | [phase-s-device-spike.md](phase-s-device-spike.md) | Outlined; needs the spike build, then devices |
-| 1 Core rules | [phase-1-core-rules.md](phase-1-core-rules.md) | In progress: P1.0 done |
+| 1 Core rules | [phase-1-core-rules.md](phase-1-core-rules.md) | In progress: P1.0 and P1.1 done |
 | 2 Audio and clock | [phase-2-audio-clock.md](phase-2-audio-clock.md) | Outlined; starts after spike S1 |
 | 3 to 8 | [phases-3-to-8.md](phases-3-to-8.md) | Outlined at task level; detailed when reached |
 
@@ -49,8 +49,7 @@ Mac or device, and the spike needs only a small throwaway build.
 
 The order the owner set for the current work:
 
-1. **Phase 1, tasks P1.1 and P1.2**: models and the tempo map, then chart decoding, validation and
-   the hash. P1.0 is done.
+1. **Phase 1, task P1.2**: chart decoding, validation and the hash. P1.0 and P1.1 are done.
 2. **Spike build** for Phase S, so it is ready when the devices are.
 3. **Challenge GAME_RULES.md**, whose findings had no skeptic pass, then tasks P1.3 to P1.6.
 4. **Challenge MATCH_PROTOCOL.md**, with the merge property tests and the conversation simulator

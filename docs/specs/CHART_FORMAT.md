@@ -96,8 +96,8 @@ Also, for every difficulty:
 - Hype phrases: sorted, non-overlapping, at least 4 member notes each, both notes of a chord in the
   same phrase, the last phrase ending at least 16 beats before the final note, 4 to 6 phrases, and
   total capacity (8 beats per phrase) at most 30% of the song's beats.
-- Tempo between 40 and 300 BPM. First note at or after tick 0. Song length within the manifest's
-  duration.
+- Tempo between 40 and 300 BPM. Resolution between 1 and 960 ticks per beat. First note at or after
+  tick 0. Song length within the manifest's duration.
 - The same-lane gap exceeds the Good window plus the Perfect window of the difficulty, so a tap inside
   one note's Perfect window can never be captured by the note before it. (D-054)
 
@@ -105,10 +105,15 @@ All limits are `GameConfig.charts` properties.
 
 ## 5. Song manifest
 
-As PLAN.md appendix B, with these changes: `durationSec` must be within 60 to 90 seconds (the
-validator accepts 55 to 95), and a `contentRevision` integer is added at the catalogue level. Shipped
-audio is 48 kHz stereo AAC-LC produced by one scripted encoder path; a test asserts both stems have
-the same sample rate and length. (D-037, D-062)
+As PLAN.md appendix B, with these changes:
+
+- Times are whole milliseconds, like `audioOffsetMs`: `durationSec` becomes `durationMs` and
+  `previewStartSec` becomes `previewStartMs`. (D-087)
+- `durationMs` must be within 60,000 to 90,000 (the validator accepts 55,000 to 95,000). (D-062)
+- A `contentRevision` integer is added at the catalogue level.
+
+Shipped audio is 48 kHz stereo AAC-LC produced by one scripted encoder path; a test asserts both
+stems have the same sample rate and length. (D-037)
 
 ## 6. Source format (unverified)
 
@@ -124,3 +129,7 @@ outstanding content review.
 2. Whether Easy needs chords at all once playtested (currently none).
 3. Whether placeholder audio can be produced on Linux with a known-good encoder path, or must be
    encoded on a Mac (AUD-11).
+4. Where `contentRevision` lives: section 5 puts it "at the catalogue level", and no catalogue file is
+   defined yet. Task P1.8 compares it when decoding a match.
+5. What the manifest's `audioOffsetMs` and `intensity` mean: PLAN.md appendix B lists them without a
+   definition. Nothing in Phase 1 reads them.
