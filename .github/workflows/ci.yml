@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Swift formatting
-        run: swift format lint --strict --recursive Packages RiffMessages
+        run: swift format lint --strict --recursive Packages RiffMessages Tests
       - name: Build
         run: swift build --package-path Packages/RiffCore
       - name: Test
@@ -59,6 +59,8 @@ jobs:
         run: brew install xcodegen
       - name: Generate the project
         run: xcodegen generate
+      - name: Spike diagnostic tests
+        run: scripts/test-spike.sh
       - name: Build for the simulator (unsigned)
         run: |
           set -o pipefail

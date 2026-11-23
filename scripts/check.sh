@@ -18,7 +18,7 @@ step() {
     fi
 }
 
-step "Swift formatting" scripts/swiftw format lint --strict --recursive Packages RiffMessages
+step "Swift formatting" scripts/swiftw format lint --strict --recursive Packages RiffMessages Tests
 step "RiffCore tests" scripts/test-core.sh
 step "Tunables snapshot is current" scripts/sync-config-snapshot.sh --check
 step "Example chart is valid" scripts/swiftw run --package-path Packages/RiffCore riffcli chart check \
@@ -27,6 +27,7 @@ step "Python tools" scripts/test-tools.sh
 step "Icon set is complete" python3 scripts/make-placeholder-icons.py --check
 
 if [[ "$(uname -s)" == Darwin ]]; then
+    step "Spike diagnostic tests" scripts/test-spike.sh
     step "iOS Simulator build" scripts/build-ios-simulator.sh
 else
     echo "SKIP  iOS Simulator build (requires macOS and Xcode; CI builds it on macOS)"

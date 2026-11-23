@@ -5,10 +5,10 @@ each turn's score bubble dares the next player to beat it. "Riff" is a code name
 
 ## Status
 
-Scaffold only. Nothing is playable yet. The plan has been reviewed and amended, the repository builds
-an empty Messages extension, and the core rules package has its configuration, tooling and tests in
-place. Work proceeds in the phases described in [docs/PLAN.md](docs/PLAN.md), starting with the device
-spike (Phase S) and the core rules (Phase 1).
+Nothing is playable yet. Phase 1 has configuration, chart models, validation and tests, and the
+Messages extension has a temporary device-diagnostics build. The device spike needs signed builds and
+real-device reports before the audio and gameplay phases can be validated. The current order is in
+[docs/plan/](docs/plan/README.md).
 
 ## Documentation
 
@@ -39,7 +39,9 @@ open Riff.xcodeproj
 
 Run the `Riff` scheme on a simulator or your iPhone (if Xcode asks which app to run, pick Messages).
 In Messages, open a conversation, tap **+**, then **More**, and choose Riff. You should see a
-placeholder screen showing the core version and whether the view is compact or expanded.
+placeholder screen showing the core version and whether the view is compact or expanded. The
+**Device spike** entry opens the temporary diagnostics described in
+[phase-s-device-spike.md](docs/plan/phase-s-device-spike.md).
 
 `Riff.xcodeproj` is generated from `project.yml` and is never committed.
 
@@ -49,6 +51,7 @@ placeholder screen showing the core version and whether the view is compact or e
 scripts/check.sh              # everything that runs without Xcode
 scripts/test-core.sh          # RiffCore tests only
 scripts/test-tools.sh         # Python tools: ruff and pytest
+scripts/test-spike.sh         # spike payload and measurement tests (macOS)
 scripts/lint.sh               # formatting
 scripts/coverage-core.sh      # RiffCore line coverage, file by file
 ```

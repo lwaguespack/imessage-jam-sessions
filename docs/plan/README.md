@@ -9,7 +9,7 @@ in what order, and how to tell it is done. The specs in [../specs/](../specs/) h
 | Phase | Document | Status |
 | --- | --- | --- |
 | 0 Foundations | Below | Done except the owner's steps |
-| S Device spike | [phase-s-device-spike.md](phase-s-device-spike.md) | Outlined; needs the spike build, then devices |
+| S Device spike | [phase-s-device-spike.md](phase-s-device-spike.md) | Diagnostic build implemented; needs signing, TestFlight and device reports |
 | 1 Core rules | [phase-1-core-rules.md](phase-1-core-rules.md) | In progress: P1.0 to P1.2 done |
 | 2 Audio and clock | [phase-2-audio-clock.md](phase-2-audio-clock.md) | Outlined; starts after spike S1 |
 | 3 to 8 | [phases-3-to-8.md](phases-3-to-8.md) | Outlined at task level; detailed when reached |
@@ -50,7 +50,8 @@ Mac or device, and the spike needs only a small throwaway build.
 The order the owner set for the current work:
 
 1. **Phase 1, tasks P1.0 to P1.2**: done. The owner reviews them before the next item starts.
-2. **Spike build** for Phase S, so it is ready when the devices are.
+2. **Spike build** for Phase S: implemented; the owner runs the device protocols after signing and
+   TestFlight setup.
 3. **Challenge GAME_RULES.md**, whose findings had no skeptic pass, then tasks P1.3 to P1.6.
 4. **Challenge MATCH_PROTOCOL.md**, with the merge property tests and the conversation simulator
    written first, then tasks P1.7 to P1.9 and the Phase 1 gate. Until each challenge is done, its

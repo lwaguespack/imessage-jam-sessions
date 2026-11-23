@@ -18,11 +18,13 @@ duels, group rounds and an XP meta, no server. Every game rule lives in the pure
 | `scripts/build-ios-simulator.sh` | On macOS: generates `Riff.xcodeproj` and builds the unsigned Riff scheme for the iOS Simulator. |
 | `scripts/test-core.sh [--filter Name]` | While working on `RiffCore`. |
 | `scripts/test-tools.sh` | While working on `tools/`. |
-| `scripts/swiftw format --in-place --recursive Packages RiffMessages` | Before committing Swift. |
+| `scripts/test-spike.sh` | On macOS: run the device spike's synthetic-payload and measurement tests. |
+| `scripts/swiftw format --in-place --recursive Packages RiffMessages Tests` | Before committing Swift. |
 | `scripts/sync-config-snapshot.sh` | After any change to `GameConfig`. Commit the result. |
 | `RIFF_WRITE_FIXTURES=1 scripts/test-core.sh --filter fileMatchesTheBuilder` | After a change to the example chart or to `rulesVersion`: rewrites the chart fixture. Commit the result. |
 | `scripts/coverage-core.sh [--min N Dir...]` | Line coverage of `RiffCore`, file by file; `--min` enforces it per directory. |
 | `scripts/bootstrap.sh` | macOS only: generates `Riff.xcodeproj`. |
+| `python3 scripts/make-spike-stems.py` | On macOS: regenerate the device spike's two original AAC test tones. |
 
 ## Building with or without a Mac
 

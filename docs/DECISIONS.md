@@ -454,3 +454,10 @@ average about 107 BPM, and one at 90 seconds about 71 BPM. Tempos down to 40 BPM
 slow song passes the tempo rule and can never pass the Hype rules. Both numbers come from the gameplay
 review, which had no skeptic pass. The default keeps them and chooses launch songs that fit (D-101).
 The alternatives are fewer phrases for short or slow songs, or a larger share.
+
+### D-091 The device spike is available in TestFlight and saves its report locally
+**Decided.** The spike document called its entry point debug-only, but the Xcode scheme archives
+Release for TestFlight. The temporary diagnostics are available in both configurations and append
+their report locally as events happen, so a process termination does not discard the earlier
+measurements. Test messages contain synthetic data only. Device observations remain unconfirmed until
+the owner runs the protocols.
