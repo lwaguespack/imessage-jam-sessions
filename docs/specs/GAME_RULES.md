@@ -257,6 +257,13 @@ simulate` runs bots over a chart and prints the star distribution. (D-007, D-009
 | Clustered | Misses arrive in bursts, as real misses do |
 | Masher | Taps every lane on a fixed period (200 and 250 ms) with random phase |
 
+Skill timing uses the sum of twelve seeded 16-bit uniform values, centred and scaled by the
+configured standard deviation using integer division toward zero: a bounded approximation to a
+Gaussian, not a floating-point random API. Miss probability and burst start/continuation rates,
+tap duration, masher periods and simulation caps live in `GameConfig.simulation`. All bots use no
+Hype so their scores can be compared on the same basis. The defaults are test assumptions, not
+measurements of real players. The CLI reports the lower median when the run count is even. (D-117)
+
 Acceptance rule for every shipped chart: the masher never earns a Full Combo and scores below the
 casual bot's median.
 

@@ -86,7 +86,7 @@ Follow-up:
 
 - P1.6 added computed base score, ceiling and cutoffs, and regenerated the example fixture.
 - No command passes a manifest to the validator yet (CHART_FORMAT.md section 7).
-- `scripts/check.sh` runs `chart check` on the example chart; CI gets that step at the phase gate.
+- `scripts/check.sh` and Linux CI run `chart check` on the example chart.
 
 ## P1.3 Judge
 
@@ -183,13 +183,19 @@ Tests: as listed in MATCH_PROTOCOL.md section 14.
 
 ## P1.9 Bots, simulators and coverage
 
+**Done.** Seeded integer-only skill, burst and masher bots drive the production session. The CLI
+reports star distributions and lower-median scores. Golden replay and CLI fixtures pin output. For
+the example chart, a note-density bound proves that neither masher can Full Combo or exceed the
+median of a fixed 32-seed casual sample, regardless of masher phase; 32 sampled seeds per period
+also exercise the implementation. This does not claim that the sample is a real-player distribution.
+
 | File | Contents |
 | --- | --- |
 | `Support/SplitMix64.swift` | The seeded generator |
 | `Sim/Bots.swift` | Perfect, skill-level, clustered and masher bots (GAME_RULES section 10) |
 | `riffcli/Commands/SimulateCommand.swift` | `riffcli simulate <chart> --seed N --runs N`: star distribution per bot |
 | `Tests/.../ConversationSimulatorTests.swift` | Several devices, random orderings, duplicates, drops, reinstall, second device |
-| `Tests/.../Fixtures/` | Golden runs and payload vectors as JSON |
+| `Tests/.../Fixtures/` | Golden run logs, simulator output and payload vectors |
 
 ## Done when
 

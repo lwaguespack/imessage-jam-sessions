@@ -25,6 +25,9 @@ public struct GameConfig: Codable, Equatable, Sendable {
     /// Star thresholds and the Gold rule (plan 4.6).
     public var stars = Stars()
 
+    /// Seeded simulator parameters; these do not change the scoring rules.
+    public var simulation = Simulation()
+
     /// Lead-in, countdowns, the miss duck and clock drift (plan 4.7, 4.8, 7.3).
     public var playback = Playback()
 

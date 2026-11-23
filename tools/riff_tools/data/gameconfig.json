@@ -245,6 +245,33 @@
     },
     "sustainPointsPerBeat": 25
   },
+  "simulation": {
+    "beginner": {
+      "missChanceBasisPoints": 1000,
+      "timingStdDevMicros": 60000
+    },
+    "casual": {
+      "missChanceBasisPoints": 400,
+      "timingStdDevMicros": 35000
+    },
+    "clusterContinueBasisPoints": 6500,
+    "clusterStartBasisPoints": 300,
+    "good": {
+      "missChanceBasisPoints": 150,
+      "timingStdDevMicros": 25000
+    },
+    "masherPeriodsMicros": [
+      200000,
+      250000
+    ],
+    "maxInputEvents": 100000,
+    "maxRuns": 10000,
+    "skilled": {
+      "missChanceBasisPoints": 50,
+      "timingStdDevMicros": 15000
+    },
+    "tapDurationMicros": 20000
+  },
   "songs": {
     "artworkPixels": 1024,
     "durationToleranceMicros": 5000000,

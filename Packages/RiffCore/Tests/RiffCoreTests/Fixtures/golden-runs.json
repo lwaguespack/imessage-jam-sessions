@@ -1,0 +1,48 @@
+[
+  {
+    "name": "ghost and good",
+    "log": {
+      "chartHash": "deadbeef",
+      "rulesVersion": 3,
+      "difficulty": "expert",
+      "scrollTimeMicros": 1100000,
+      "finishedAt": 2130000,
+      "inputs": [
+        {"event": {"touchDown": {"id": 9, "lane": 3, "time": 870000}}, "originalTime": 870000, "wasLate": false, "synthetic": false},
+        {"event": {"touchUp": {"id": 9, "time": 870001}}, "originalTime": 870001, "wasLate": false, "synthetic": false},
+        {"event": {"touchDown": {"id": 1, "lane": 0, "time": 1000000}}, "originalTime": 1000000, "wasLate": false, "synthetic": false},
+        {"event": {"touchUp": {"id": 1, "time": 1000001}}, "originalTime": 1000001, "wasLate": false, "synthetic": false},
+        {"event": {"touchDown": {"id": 2, "lane": 1, "time": 2130000}}, "originalTime": 2130000, "wasLate": false, "synthetic": false}
+      ]
+    },
+    "expected": {
+      "score": 150, "accuracyBasisPoints": 7500,
+      "perfectCount": 1, "greatCount": 0, "goodCount": 1, "missCount": 0,
+      "longestStreak": 2, "noteCount": 2, "fullCombo": false, "stars": 4,
+      "hypeActivations": 0, "ghostTapCount": 1, "lateInputCount": 0,
+      "chartHash": "deadbeef", "rulesVersion": 3, "difficulty": "expert"
+    }
+  },
+  {
+    "name": "miss and late ghost",
+    "log": {
+      "chartHash": "deadbeef",
+      "rulesVersion": 3,
+      "difficulty": "expert",
+      "scrollTimeMicros": 1100000,
+      "finishedAt": 2000000,
+      "inputs": [
+        {"event": {"touchDown": {"id": 1, "lane": 3, "time": 1130001}}, "originalTime": 1130000, "wasLate": true, "synthetic": false},
+        {"event": {"touchUp": {"id": 1, "time": 1140000}}, "originalTime": 1140000, "wasLate": false, "synthetic": false},
+        {"event": {"touchDown": {"id": 2, "lane": 1, "time": 2000000}}, "originalTime": 2000000, "wasLate": false, "synthetic": false}
+      ]
+    },
+    "expected": {
+      "score": 100, "accuracyBasisPoints": 5000,
+      "perfectCount": 1, "greatCount": 0, "goodCount": 0, "missCount": 1,
+      "longestStreak": 1, "noteCount": 2, "fullCombo": false, "stars": 3,
+      "hypeActivations": 0, "ghostTapCount": 1, "lateInputCount": 1,
+      "chartHash": "deadbeef", "rulesVersion": 3, "difficulty": "expert"
+    }
+  }
+]

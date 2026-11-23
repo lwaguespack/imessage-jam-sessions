@@ -51,7 +51,7 @@ struct GameConfigJSONTests {
     func topLevelKeysAreTheGroups() throws {
         let expected = [
             "budgets", "charts", "highway", "hype", "judging", "levels", "match", "payload", "playback",
-            "rulesVersion", "scoring", "songs", "stars", "unlocks", "xp",
+            "rulesVersion", "scoring", "simulation", "songs", "stars", "unlocks", "xp",
         ]
         #expect(topLevelKeys(of: try canonicalText(.standard)) == expected)
     }

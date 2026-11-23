@@ -20,6 +20,7 @@ duels, group rounds and an XP meta, no server. Every game rule lives in the pure
 | `scripts/test-tools.sh` | While working on `tools/`. |
 | `scripts/test-spike.sh` | On macOS: run the device spike's synthetic-payload and measurement tests. |
 | `scripts/test-payload-cli.sh` | Check `riffcli payload inspect` against both wire-version fixtures. |
+| `scripts/test-simulate-cli.sh` | Check the seeded simulator against its example-chart golden run. |
 | `scripts/swiftw format --in-place --recursive Packages RiffMessages Tests` | Before committing Swift. |
 | `scripts/sync-config-snapshot.sh` | After any change to `GameConfig`. Commit the result. |
 | `RIFF_WRITE_FIXTURES=1 scripts/test-core.sh --filter fileMatchesTheBuilder` | After a change to the example chart or to `rulesVersion`: rewrites the chart fixture. Commit the result. |

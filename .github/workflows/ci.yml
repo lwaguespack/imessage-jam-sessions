@@ -30,6 +30,12 @@ jobs:
         run: swift test --package-path Packages/RiffCore
       - name: Payload inspect golden vectors
         run: scripts/test-payload-cli.sh
+      - name: Seeded simulator golden run
+        run: scripts/test-simulate-cli.sh
+      - name: Example chart
+        run: swift run --package-path Packages/RiffCore riffcli chart check Packages/RiffCore/Tests/RiffCoreTests/Fixtures/example-medium.json
+      - name: Phase 1 coverage gate
+        run: scripts/coverage-core.sh --min 90 Engine Match Progression
       - name: Tunables snapshot is current
         run: scripts/sync-config-snapshot.sh --check
 

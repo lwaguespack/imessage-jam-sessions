@@ -598,3 +598,10 @@ independent offer, so a final results screen can still repair an older bubble.
 **Decided.** Retrying after a crash must not erase the attempt count shown on the card. The
 per-match, per-round counter is incremented before starting the run and capped at `match.maxTries`;
 the app must persist it before play and report when the cap is reached.
+
+### D-117 Simulator skill profiles are seeded integer approximations
+**Decided.** To make runs reproducible without floating-point differences, the bot simulator uses a
+sum of twelve 16-bit uniform draws as a bounded approximation to Gaussian timing error. Timing
+deviations, miss rates, burst rates, tap duration and masher periods are `GameConfig.simulation`
+values. All bots omit Hype for a comparable baseline. These starting profiles are not claims about
+real players.
