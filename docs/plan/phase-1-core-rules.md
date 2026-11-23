@@ -202,7 +202,8 @@ also exercise the implementation. This does not claim that the sample is a real-
 - `scripts/check.sh` passes locally and CI is green on Linux and macOS.
 - Line coverage is at least 90% on each of `Engine/`, `Match/` and `Progression/`, counted over the
   whole directory (`scripts/coverage-core.sh --min 90 Engine Match Progression`).
-- The conversation simulator converges for 1,000 seeds with no lost entry and exactly-once bonus XP.
+- The conversation simulator converges for 1,000 seeds with no lost entry and one bonus per eligible
+  local ledger after convergence; it does not prove global agreement on earlier payouts (D-099).
 - The masher bot never earns a Full Combo on the example chart and scores below the casual bot.
 - `riffcli chart check` passes on the example chart, and `riffcli payload inspect` round-trips the
   golden vectors.

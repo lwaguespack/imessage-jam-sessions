@@ -86,4 +86,6 @@ grant every catalogue reward through the derived level. Different profile IDs do
 sync layer must preserve the stable profile ID while assigning each installation its own counter ID.
 In JSON, each 8-byte profile and installation ID is exactly 16 lowercase hexadecimal characters, so
 the entire unsigned ID range round-trips through canonical JSON.
-(D-070, D-109)
+The per-install counter join does not deduplicate the same match award independently credited on two
+devices; a future sync design must reconcile settlement records as well as counters before claiming
+cross-device exactly-once awards. No such sync exists in v1. (D-070, D-109, D-119)

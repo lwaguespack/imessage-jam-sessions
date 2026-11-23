@@ -17,15 +17,38 @@ A second, independent skeptic then tried to refute each finding before it was al
 | Match protocol, payload and progression | Yes | Not run |
 | Gameplay rules, scoring and determinism | Yes | Not run |
 | Audio, clock and latency | Yes | Not run |
-| Architecture, toolchain and build loop | **Not run** | Not run |
+| Architecture, toolchain and build loop | Phase 1 follow-up below | Not run |
 | Content, UX, legal, schedule and dated claims | **Not run** | Not run |
 
-The last two reviews and three skeptic passes were cut off by a usage limit. Treat findings without a
-skeptic pass as well-evidenced but unchallenged. Two checks from the missing reviews were done by hand
+The last two original reviews and three skeptic passes were cut off by a usage limit. Treat findings
+without a skeptic pass as well-evidenced but unchallenged. Two checks from the missing reviews were done by hand
 while setting up the repository: the build loop (Swift runs on Linux in Docker; GitHub Actions builds the
 iOS targets, see D-002) and two dated claims (Xcode 27 is current, and an "iPhone Duo" simulator ships
 with it). Still unreviewed: the content pipeline (chart source format, music licensing), accessibility,
 App Review and trademark exposure, and the 10-week schedule.
+
+## Phase 1 build and architecture follow-up
+
+A direct implementation review on 2026-11-23 checked the Swift package boundary, generated Xcode
+targets, local and CI build paths, match routing, finality, storage and settlement. It is not an
+independent skeptic pass.
+
+- **ARCH-1, major: Phase 4 needed a store scheduled for Phase 6.** Settling a match requires the
+  profile, ledger, joined fragments and first-final descriptor to survive together. The Phase 4
+  outline now includes the minimal atomic store and restart/crash tests; Phase 6 extends it (D-119).
+- **ARCH-2, major: an already-paid round masked a changed final proposal.** The settlement result
+  now reports the conflict before checking the ledger, without changing the prior award (D-118).
+- **ARCH-3, major: the device gate overstated agreement.** A no-server merge can converge while
+  different devices have already paid different first-observed standings. The Phase 4 gate now
+  requires converged standings and at-most-once local awards, not globally identical past payouts.
+  Future profile sync must reconcile settlement records as well as XP counters (D-119).
+- **BUILD-1: the Swift Linux container lacks Python.** Its new coverage step needs `python3`, so CI
+  installs that reporting tool explicitly. Linux Swift tests and the local unsigned iOS Simulator
+  build exercise the same core; signing, TestFlight delivery and all device behavior remain unverified.
+
+The core has no platform-framework imports or clock/random-source reads; the extension supplies
+platform behavior and timestamps. The payload tag is an integrity check, not a secret. The device
+spike, production persistence, content, accessibility and legal reviews remain separate work.
 
 ## The findings that matter most
 

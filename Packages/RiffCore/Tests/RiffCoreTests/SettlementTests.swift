@@ -44,6 +44,37 @@ struct SettlementTests {
         #expect(try restored.profile.totalXP() == 75)
     }
 
+    @Test("An already-paid round still reports a changed finalized proposal")
+    func conflictAfterSettlement() throws {
+        let unlocks = try ProgressionTestData.unlocks()
+        var progress = SettlementState(profile: Profile(profileID: 1, unlocks: unlocks))
+        let entries = try [entry(1, score: 100, time: 100), entry(2, score: 200, time: 101)]
+        let original = try state(mode: .duel, entries: entries)
+        let oldWinner = original.winningProposal.descriptor
+        #expect(
+            try progress.settleCurrent(
+                original, now: 102, finalizedWinner: oldWinner, playerID: 2, installationID: 2,
+                contentRevision: 1, unlocks: unlocks, config: config) == .settled(75))
+        let saved = progress
+        let earlier = try MatchDescriptor(
+            chart: oldWinner.chart, starter: oldWinner.starter, startTime: 99,
+            rosterSize: 2, deadlineHours: 0, mode: .duel, config: config)
+        let changed = try MatchState(
+            matchID: original.matchID, mode: .duel, rulesVersion: original.rulesVersion,
+            contentRevision: original.contentRevision, round: original.round, history: original.history,
+            proposals: [MatchProposal(descriptor: earlier, entries: entries)], config: config)
+        #expect(
+            try progress.settleCurrent(
+                changed, now: 103, finalizedWinner: oldWinner, playerID: 2, installationID: 2,
+                contentRevision: 1, unlocks: unlocks, config: config) == .winnerChanged)
+        #expect(throws: MatchFinality.Error.invalidTime) {
+            try progress.settleCurrent(
+                original, now: -1, finalizedWinner: oldWinner, playerID: 2, installationID: 2,
+                contentRevision: 1, unlocks: unlocks, config: config)
+        }
+        #expect(progress == saved)
+    }
+
     @Test("A late group entry settles for zero, not podium XP")
     func lateEntry() throws {
         let unlocks = try ProgressionTestData.unlocks()

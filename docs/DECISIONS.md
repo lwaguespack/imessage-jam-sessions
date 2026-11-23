@@ -605,3 +605,15 @@ sum of twelve 16-bit uniform draws as a bounded approximation to Gaussian timing
 deviations, miss rates, burst rates, tap duration and masher periods are `GameConfig.simulation`
 values. All bots omit Hype for a comparable baseline. These starting profiles are not claims about
 real players.
+
+### D-118 A changed finalized proposal remains a conflict after settlement
+**Decided.** Checking the paid ledger first hid a changed proposal behind "already settled". A
+changed first-final descriptor takes precedence, while the existing ledger and XP remain unchanged.
+This keeps the settlement result consistent with the router's conflict screen.
+
+### D-119 Match finality and settlement need one durable Phase 4 transaction
+**Decided.** Phase 4 awards XP, but the original task outline deferred the profile store to Phase 6.
+Phase 4 must first persist joined fragments, the first-final descriptor, profile and ledger together
+before showing final results or an award; Phase 6 extends that store. This preserves the local
+no-reopen and at-most-once rules across crashes. There is no global exactly-once payout guarantee:
+first-observed standings can differ, and future profile sync must also reconcile settlement records.

@@ -116,9 +116,10 @@ Only the winning starter's device offers "Close round". The deadline is 24 hours
 
 A device records which proposal it first saw as final and does not silently reopen it. If a newly
 arrived earlier proposal changes that winner, show a conflict and block normal rematch/settlement
-until the user starts a new match. Late entries for the same winning proposal can still change
-standings. Without a server, clocks and message delivery cannot guarantee every device first sees the
-same final snapshot. (D-099)
+until the user starts a new match, even if this round was already settled. Late entries for the same
+winning proposal can still change standings. The first-final descriptor is persisted by match and
+round, not inferred from the current bubble after a restart. Without a server, clocks and message
+delivery cannot guarantee every device first sees the same final snapshot. (D-099, D-118)
 
 ## 6. Ranking
 
@@ -139,7 +140,9 @@ A device pays its own player once, the first time it sees a final round containi
 either as the current round or through `previous` of a later state. Reopening a bubble never pays
 again. The ledger record and XP update must be persisted atomically. A late-delivered entry does not
 re-pay or claw back, even if it changes the eventual winner; two devices can therefore have paid
-different first-observed winners. This is an explicit limitation, not global agreement. (D-014, D-099)
+different first-observed winners. The joined match fragments, first-final descriptor, ledger and
+profile must be persisted in one transaction before showing final results or a settlement award.
+This is a local guarantee, not global agreement. (D-014, D-099, D-119)
 
 ## 9. Submitting a turn
 

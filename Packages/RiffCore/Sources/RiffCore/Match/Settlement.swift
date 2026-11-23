@@ -73,13 +73,10 @@ public struct SettlementState: Codable, Equatable, Sendable {
         unlocks: Unlocks, config: GameConfig
     ) throws -> Outcome {
         try validateRevision(state, contentRevision: contentRevision, config: config)
-        if hasRecord(matchID: state.matchID, round: state.round) { return .alreadySettled }
         let finality = try MatchFinality.evaluate(state, now: now, finalizedWinner: finalizedWinner)
-        switch finality.status {
-        case .open: return .notFinal
-        case .winnerChanged: return .winnerChanged
-        case .final: break
-        }
+        if finality.status == .winnerChanged { return .winnerChanged }
+        if hasRecord(matchID: state.matchID, round: state.round) { return .alreadySettled }
+        guard finality.status == .final else { return .notFinal }
         guard state.winningEntries.contains(where: { $0.playerID == playerID }) else { return .noEntry }
         let place = finality.ranked.firstIndex { $0.playerID == playerID }.map { $0 + 1 }
         let bonus = try bonus(mode: state.mode, place: place, config: config)

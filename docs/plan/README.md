@@ -10,7 +10,7 @@ in what order, and how to tell it is done. The specs in [../specs/](../specs/) h
 | --- | --- | --- |
 | 0 Foundations | Below | Done except the owner's steps |
 | S Device spike | [phase-s-device-spike.md](phase-s-device-spike.md) | Diagnostic build implemented; needs signing, TestFlight and device reports |
-| 1 Core rules | [phase-1-core-rules.md](phase-1-core-rules.md) | P1.0 to P1.9 done; phase gate and architecture review in progress |
+| 1 Core rules | [phase-1-core-rules.md](phase-1-core-rules.md) | P1.0 to P1.9 and architecture review done; phase gate in progress |
 | 2 Audio and clock | [phase-2-audio-clock.md](phase-2-audio-clock.md) | Outlined; starts after spike S1 |
 | 3 to 8 | [phases-3-to-8.md](phases-3-to-8.md) | Outlined at task level; detailed when reached |
 
@@ -57,8 +57,9 @@ The order the owner set for the current work:
 4. **Challenge MATCH_PROTOCOL.md**: the test-only merge model and conversation simulator exposed
    lost entries and inconsistent first-observed finality; draft 2 records the proposed corrections
    (D-097 to D-099). P1.7 to P1.9 are done; the Phase 1 gate follows.
-5. **Build and architecture review** (D-082), once Phase 1 exists. The content, UX and legal review
-   waits for Phase 5 planning. The audio findings still have no skeptic pass.
+5. **Build and architecture review** (D-082): the Phase 1 follow-up is recorded in PLAN_REVIEW.md,
+   with fixes D-118 and D-119. The content, UX and legal review waits for Phase 5 planning. The audio
+   findings still have no skeptic pass.
 6. **Owner decisions** in the table at the top of DECISIONS.md. None blocks work today: each has a
    default, and each is one configuration value. Music sourcing (D-101) has the longest lead time.
 
