@@ -97,6 +97,7 @@ struct MatchMergeTests {
             try store.receive(right, config: config)
                 == .capacityExceeded(proposals: 9, entries: 0))
         #expect(store.fragments(matchID: 7, round: 1).count == 2)
+        #expect(store.allFragments.count == 2)
 
         var reverse = MatchStore()
         _ = try reverse.receive(right, config: config)

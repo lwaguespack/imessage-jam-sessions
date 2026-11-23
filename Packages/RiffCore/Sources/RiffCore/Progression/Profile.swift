@@ -19,7 +19,9 @@ public struct Profile: Codable, Equatable, Sendable {
 
         public init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            installationID = try Profile.parseID(container.decode(String.self, forKey: .installationID))
+            let text = try container.decode(String.self, forKey: .installationID)
+            guard let id = FixedID.decode(text) else { throw Error.invalidState }
+            installationID = id
             let value = try container.decode(Int64.self, forKey: .xp)
             guard value >= 0 else { throw Error.invalidState }
             xp = value
@@ -27,7 +29,7 @@ public struct Profile: Codable, Equatable, Sendable {
 
         public func encode(to encoder: any Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(Profile.hexID(installationID), forKey: .installationID)
+            try container.encode(FixedID.encode(installationID), forKey: .installationID)
             try container.encode(xp, forKey: .xp)
         }
 
@@ -48,7 +50,9 @@ public struct Profile: Codable, Equatable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        profileID = try Self.parseID(container.decode(String.self, forKey: .profileID))
+        let text = try container.decode(String.self, forKey: .profileID)
+        guard let id = FixedID.decode(text) else { throw Error.invalidState }
+        profileID = id
         counters = try container.decode([Counter].self, forKey: .counters)
         unlocked = try container.decode([String].self, forKey: .unlocked)
         guard counters.allSatisfy({ $0.xp >= 0 }),
@@ -61,7 +65,7 @@ public struct Profile: Codable, Equatable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(Self.hexID(profileID), forKey: .profileID)
+        try container.encode(FixedID.encode(profileID), forKey: .profileID)
         try container.encode(counters, forKey: .counters)
         try container.encode(unlocked, forKey: .unlocked)
     }
@@ -135,19 +139,6 @@ public struct Profile: Codable, Equatable, Sendable {
 
     private static func precedes(_ left: String, _ right: String) -> Bool {
         left.utf8.lexicographicallyPrecedes(right.utf8)
-    }
-
-    private static func hexID(_ value: UInt64) -> String {
-        let text = String(value, radix: 16)
-        return String(repeating: "0", count: 16 - text.count) + text
-    }
-
-    private static func parseID(_ text: String) throws -> UInt64 {
-        guard text.utf8.count == 16,
-            text.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
-            let value = UInt64(text, radix: 16)
-        else { throw Error.invalidState }
-        return value
     }
 
     private enum CodingKeys: String, CodingKey {

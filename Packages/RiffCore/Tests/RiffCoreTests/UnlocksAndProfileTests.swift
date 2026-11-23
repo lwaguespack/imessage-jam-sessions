@@ -5,10 +5,7 @@ import Testing
 @Suite("Unlocks and profile")
 struct UnlocksAndProfileTests {
     private func catalogueText() throws -> String {
-        var root = URL(fileURLWithPath: #filePath)
-        for _ in 0..<5 { root.deleteLastPathComponent() }
-        return try String(
-            contentsOf: root.appendingPathComponent("RiffMessages/Resources/progression.json"), encoding: .utf8)
+        try ProgressionTestData.text()
     }
 
     private func catalogue() throws -> Unlocks {

@@ -7,6 +7,7 @@ public struct MatchStore: Sendable {
     }
 
     private var stored: [MatchState] = []
+    public var allFragments: [MatchState] { stored }
 
     public init() {}
 

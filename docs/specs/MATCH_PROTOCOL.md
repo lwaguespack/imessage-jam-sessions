@@ -3,10 +3,10 @@
 How a duel or group round is represented, merged, sent in a message, decoded, ranked and settled.
 There is no server: every shared fact travels in a message URL, and every device keeps its own copy.
 
-**Status: draft 2, partially implemented.** The draft 1 merge and conversation tests found lost entries,
+**Status: draft 2, implemented in `RiffCore`.** The draft 1 merge and conversation tests found lost entries,
 non-associative history selection and an unresolved tie. Decisions D-097 to D-099 specify the
-corrections and their limits. The version-2 codec, URL forms and chart-aware decode pipeline are
-implemented; finality, ranking and settlement remain. Section 13 lists open and device questions.
+corrections and their limits. The version-2 codec, routing, ranking, finality and settlement are
+implemented as pure rules; device behavior and disk persistence remain unverified. Section 13 lists open and device questions.
 Decisions are `D-0xx` in
 [../DECISIONS.md](../DECISIONS.md).
 
@@ -145,7 +145,9 @@ different first-observed winners. This is an explicit limitation, not global agr
 
 States of a finished run: **played**, **staged**, **sending**, **confirmed**. (D-020)
 
-1. An attempt record `(matchId, round)` is written when a challenge run starts; `tries` counts them.
+1. An attempt record `(matchId, round)` is incremented and persisted before a challenge run starts;
+   `tries` counts even interrupted attempts. At `match.maxTries` (initially 99), starting another
+   attempt is explicitly refused rather than wrapping. (D-116)
 2. The `RunSummary` is persisted synchronously when the song ends, before the results screen.
 3. `insert` stages a draft and the view requests the compact style so the Send button is reachable.
 4. A selected message with `isPending == true` is "not sent yet", never "waiting".
@@ -180,7 +182,7 @@ difficulty and chart hash in the same form as a proposal. This lets the decoder 
 previous entries against their own chart's note count and score ceiling. (D-111)
 Part `lead` is 0; difficulty is Easy 0, Medium 1, Hard 2, Expert 3. Other enum values are invalid.
 The roster is exactly 2 in a duel and 3 through 32 in a group round; the deadline is 0 for a duel
-and 1 through 255 hours for a group round.
+and 1 through 255 hours for a group round. Duel proposals cannot carry `closedAt`.
 
 `t0`, `closedAt` and entry `t` are **absolute** unsigned Unix seconds, not offsets: a receiver's
 clock can be behind the starter's. A time is 1 through `UInt32.max`; `closedAt = 0` means open.
@@ -249,7 +251,10 @@ The screen shown is a pure function, re-evaluated on `willBecomeActive`, `didBec
 `didSelect`, `didReceive` and `didTransition`, of: presentation style, the selected message's key and
 `isPending`, the last-handled message key, a "user left this match" flag, the decode outcome, and the
 store. Selection in Messages is sticky, so every match screen has a Home action that sets the flag;
-it clears only when a different message is selected. The function lives in `RiffCore`. (D-021)
+it clears only when a different message is selected. Presentation style changes the chosen screen's
+layout, not its logical route. A pending draft shows Send your score even if its contents look final;
+a final-winner conflict takes precedence. Re-post is a separate offer on any applicable screen,
+including Results. The function lives in `RiffCore`. (D-021, D-115)
 
 | Condition | Screen |
 | --- | --- |

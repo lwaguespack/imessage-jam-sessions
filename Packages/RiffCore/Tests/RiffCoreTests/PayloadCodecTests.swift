@@ -165,7 +165,8 @@ struct PayloadCodecTests {
                     entries.append(entry)
                     allEntries.append(entry)
                 }
-                proposals.append(try MatchProposal(descriptor: descriptor, closedAt: .max, entries: entries))
+                proposals.append(
+                    try MatchProposal(descriptor: descriptor, closedAt: mode == .duel ? nil : .max, entries: entries))
             }
             let series: [MatchHistory.SeriesWin] =
                 mode == .duel

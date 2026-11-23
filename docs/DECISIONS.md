@@ -578,3 +578,23 @@ still fits both the 1,024-byte duel limit and the 4,096-character URL limit.
 explicitly configured lowercase ASCII host and a fixed path. Strict host, length and encoding checks
 avoid treating unrelated links or alternate spellings as match payloads. Which form Messages actually
 preserves remains a device-spike result.
+
+### D-113 A duel has no close timestamp
+**Decided.** Only a group round has an early-close rule. A duel payload with `closedAt` set is
+invalid rather than silently ignoring a field that could imply a different final result.
+
+### D-114 Settlement returns one atomic persistence value
+**Decided.** A crash between separate writes of the XP credit and the paid-round ledger could either
+duplicate or lose a bonus. The pure settlement transition updates a combined profile-and-ledger
+value only after both changes succeed. The app must persist that value atomically before presenting
+the award; disk persistence itself is Phase 6 work.
+
+### D-115 Pending drafts and re-posts are explicit in routing
+**Decided.** A pending draft cannot confirm a result even if it contains enough entries to look
+final. A previously finalized winner changing takes precedence as a conflict. Re-post is an
+independent offer, so a final results screen can still repair an older bubble.
+
+### D-116 Attempts are counted before play and have an explicit cap
+**Decided.** Retrying after a crash must not erase the attempt count shown on the card. The
+per-match, per-round counter is incremented before starting the run and capped at `match.maxTries`;
+the app must persist it before play and report when the cap is reached.

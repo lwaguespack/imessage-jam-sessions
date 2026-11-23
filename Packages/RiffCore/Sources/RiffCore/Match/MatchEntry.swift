@@ -19,6 +19,7 @@ public enum MatchModelError: Swift.Error, Equatable, Sendable {
     case invalidTimestamp
     case invalidRoster
     case invalidDeadline
+    case invalidClosure
     case invalidHistory
     case invalidRound
     case emptyProposals

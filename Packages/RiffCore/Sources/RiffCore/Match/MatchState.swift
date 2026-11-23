@@ -176,6 +176,7 @@ public struct MatchState: Equatable, Sendable {
         for item in history.previous { try item.validate(config: config) }
         for proposal in proposals {
             try proposal.descriptor.validate(mode: mode, config: config)
+            if mode == .duel, proposal.closedAt != nil { throw MatchModelError.invalidClosure }
             for entry in proposal.entries { try entry.validate(config: config) }
         }
         let sorted = proposals.sorted { MatchDescriptor.precedes($0.descriptor, $1.descriptor) }

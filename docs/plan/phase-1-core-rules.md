@@ -162,19 +162,21 @@ deliberately empty.
 
 ## P1.8 Match
 
-**In progress.** The version-2 model, bounded proposal join, in-memory fragment store, nickname
-validation, binary codec, URL forms, chart-aware decode pipeline and `payload inspect` are implemented
-and tested, including a version-1 decode fixture. Finality, ranking, settlement and routing remain.
+**Done.** The version-2 model, bounded proposal join, in-memory fragment store, nickname validation,
+codec, URL forms, chart-aware decode pipeline, finality, ranking, settlement, routing and
+`payload inspect` are implemented and tested, including a version-1 decode fixture. The app must
+persist store fragments and the combined settlement/profile value atomically in later phases.
 
 | File | Contents |
 | --- | --- |
-| `Match/MatchState.swift`, `Match/Entry.swift`, `Match/Nickname.swift` | The model and nickname rules |
+| `Match/MatchState.swift`, `Match/MatchEntry.swift`, `Match/Nickname.swift` | The model and nickname rules |
 | `Match/MatchMerge.swift` | Section 4 of the protocol |
-| `Match/Finality.swift`, `Match/Ranking.swift` | Sections 5 and 6 |
-| `Match/PayloadCodec.swift`, `Support/ByteWriter.swift`, `Support/ByteReader.swift`, `Support/Base64URL.swift` | Wire format version 1 |
-| `Match/MatchURL.swift`, `Match/DecodeOutcome.swift` | The three URL forms and the ordered decode pipeline |
+| `Match/MatchFinality.swift`, `Match/MatchRanking.swift` | Sections 5 and 6 |
+| `Match/PayloadCodec.swift`, `Support/ByteWriter.swift`, `Support/ByteReader.swift`, `Support/Base64URL.swift` | Wire format version 2 and the defined version-1 subset |
+| `Match/MatchURL.swift`, `Match/MatchDecode.swift` | The three URL forms and the ordered decode pipeline |
 | `Match/Settlement.swift` | The ledger rule for bonus XP |
-| `Match/Router.swift`, `Match/Submission.swift` | The routing function and the submission states |
+| `Match/MatchRouter.swift`, `Match/MatchSubmission.swift`, `Match/MatchAttempts.swift` | Routing, submission states and capped attempt counts |
+| `Match/MatchActions.swift`, `Match/MatchStore.swift` | Submission, close and rematch updates; lossless in-memory fragment storage |
 | `riffcli/Commands/PayloadCommand.swift` | `riffcli payload inspect <url>` |
 
 Tests: as listed in MATCH_PROTOCOL.md section 14.
