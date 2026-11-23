@@ -572,3 +572,9 @@ bounded by the supported group size.
 knowing which chart produced it. Version 2 carries the previous chart identity alongside its short
 entries; the flag is absent exactly when the summary is empty. The resulting conservative maximum
 still fits both the 1,024-byte duel limit and the 4,096-character URL limit.
+
+### D-112 Match URLs have one canonical form per transport
+**Decided.** The `data:` form carries the unpadded base64url as plain text; the HTTPS forms use an
+explicitly configured lowercase ASCII host and a fixed path. Strict host, length and encoding checks
+avoid treating unrelated links or alternate spellings as match payloads. Which form Messages actually
+preserves remains a device-spike result.

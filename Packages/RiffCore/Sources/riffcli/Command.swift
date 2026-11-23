@@ -18,7 +18,7 @@ struct Command: Sendable {
 
 extension Command {
     /// Every subcommand, in the order the usage text lists them.
-    static let all: [Command] = [.config, .chart, .version, .help]
+    static let all: [Command] = [.config, .chart, .payload, .version, .help]
 
     static func named(_ name: String) -> Command? {
         all.first { $0.name == name || $0.aliases.contains(name) }

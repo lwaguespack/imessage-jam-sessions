@@ -40,6 +40,6 @@ extension PayloadCodec {
             matchID: matchID, mode: mode, rulesVersion: rulesVersion, contentRevision: contentRevision,
             round: round, history: MatchHistory(),
             proposals: [MatchProposal(descriptor: descriptor, closedAt: closedAt, entries: entries)], config: config)
-        return Decoded(wireVersion: 1, state: state, warnings: warnings)
+        return Decoded(wireVersion: 1, state: state, warnings: warnings, referencedCharts: [chart])
     }
 }

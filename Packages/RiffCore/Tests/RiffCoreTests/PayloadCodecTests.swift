@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import RiffCore
@@ -5,10 +6,12 @@ import Testing
 @Suite("Match payload codec")
 struct PayloadCodecTests {
     private let config = GameConfig.standard
-    private let legacy =
-        "AQECAwQFBgcIAQIBAQRzb25nAAMSNFZ4AQIDBAUGBwigjQYDGAABAQIDBAUGBwgDU2FtuWCQTioBAgAACgBpmvtO0BxZDQ"
-    private let current =
-        "AgECAwQFBgcIAQMBAQAAAAEEc29uZwADEjRWeAECAwQFBgcIoI0GAxgAAQECAwQFBgcIA1NhbblgkE4qAQIAAAGWjQZj54mbJqoKCw"
+
+    private func vector(_ version: Int) throws -> String {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/payload-v\(version).txt")
+        return try String(contentsOf: url, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     private func expectedState() throws -> MatchState {
         let player: UInt64 = 0x0102_0304_0506_0708
@@ -30,7 +33,7 @@ struct PayloadCodecTests {
     func currentGolden() throws {
         let state = try expectedState()
         let bytes = try PayloadCodec.encode(state, config: config)
-        #expect(Base64URL.encode(bytes) == current)
+        #expect(try Base64URL.encode(bytes) == vector(2))
         let decoded = try PayloadCodec.decode(bytes, config: config)
         #expect(decoded.wireVersion == 2)
         #expect(decoded.state == state)
@@ -39,6 +42,7 @@ struct PayloadCodecTests {
 
     @Test("The version-1 group fixture decodes with unknown Full Combo")
     func previousVersion() throws {
+        let legacy = try vector(1)
         let decoded = try PayloadCodec.decode(Base64URL.decode(legacy), config: config)
         #expect(decoded.wireVersion == 1)
         #expect(decoded.state.rulesVersion == 2)

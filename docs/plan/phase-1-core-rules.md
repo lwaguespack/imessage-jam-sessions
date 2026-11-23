@@ -163,8 +163,8 @@ deliberately empty.
 ## P1.8 Match
 
 **In progress.** The version-2 model, bounded proposal join, in-memory fragment store, nickname
-validation and binary codec are implemented and tested, including a version-1 decode fixture.
-URL handling, chart-aware decoding, finality, ranking, settlement and routing remain.
+validation, binary codec, URL forms, chart-aware decode pipeline and `payload inspect` are implemented
+and tested, including a version-1 decode fixture. Finality, ranking, settlement and routing remain.
 
 | File | Contents |
 | --- | --- |

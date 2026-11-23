@@ -26,6 +26,8 @@ public enum PayloadCodec {
         public let wireVersion: UInt8
         public let state: MatchState
         public let warnings: [Warning]
+        /// Charts as transmitted, including a previous chart whose entries were all rejected.
+        public let referencedCharts: [MatchChart]
     }
 
     public static func encode(_ state: MatchState, config: GameConfig) throws -> [UInt8] {
@@ -78,7 +80,7 @@ public enum PayloadCodec {
             }
         } catch let error as MatchModelError {
             throw Failure.invalidModel(error)
-        } catch is Nickname.Error {
+        } catch Nickname.Error.invalidConfiguration {
             throw Failure.invalidNicknameConfiguration
         }
     }

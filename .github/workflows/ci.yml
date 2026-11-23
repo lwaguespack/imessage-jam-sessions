@@ -28,6 +28,8 @@ jobs:
         run: swift build --package-path Packages/RiffCore
       - name: Test
         run: swift test --package-path Packages/RiffCore
+      - name: Payload inspect golden vectors
+        run: scripts/test-payload-cli.sh
       - name: Tunables snapshot is current
         run: scripts/sync-config-snapshot.sh --check
 

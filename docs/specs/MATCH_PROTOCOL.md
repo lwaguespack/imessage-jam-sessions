@@ -5,8 +5,9 @@ There is no server: every shared fact travels in a message URL, and every device
 
 **Status: draft 2, partially implemented.** The draft 1 merge and conversation tests found lost entries,
 non-associative history selection and an unresolved tie. Decisions D-097 to D-099 specify the
-corrections and their limits. The version-2 binary codec and version-1 decode test are implemented;
-URL routing and the chart-aware decode pipeline remain. Section 13 lists open and device questions. Decisions are `D-0xx` in
+corrections and their limits. The version-2 codec, URL forms and chart-aware decode pipeline are
+implemented; finality, ranking and settlement remain. Section 13 lists open and device questions.
+Decisions are `D-0xx` in
 [../DECISIONS.md](../DECISIONS.md).
 
 ## 1. Terms
@@ -214,11 +215,14 @@ guessed. Version-1 tags use the existing `integrityKeyV1`.
 
 Three candidate forms; the device spike picks one (D-017). The decoder accepts all three.
 
-1. `data:` URL carrying the payload (no server contact, no domain to own).
+1. `data:text/plain,<payload>` (no server contact, no domain to own).
 2. `https://<domain>/m#<payload>`: the fragment is never sent to the server.
 3. `https://<domain>/m?p=<payload>` on a static page with no request logging: last resort.
 
 Until a domain is chosen the placeholder is `riff.invalid`, which never resolves.
+URLs use ASCII and an explicitly configured lowercase host; the decoder rejects other hosts,
+extra query parameters and non-canonical base64url. Length is therefore the same in bytes and
+characters. (D-112)
 
 ### 10.3 Decoding
 

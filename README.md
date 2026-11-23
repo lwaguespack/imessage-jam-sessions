@@ -52,6 +52,7 @@ scripts/check.sh              # everything that runs without Xcode
 scripts/test-core.sh          # RiffCore tests only
 scripts/test-tools.sh         # Python tools: ruff and pytest
 scripts/test-spike.sh         # spike payload and measurement tests (macOS)
+scripts/test-payload-cli.sh   # payload inspect against the golden vectors
 scripts/lint.sh               # formatting
 scripts/coverage-core.sh      # RiffCore line coverage, file by file
 ```

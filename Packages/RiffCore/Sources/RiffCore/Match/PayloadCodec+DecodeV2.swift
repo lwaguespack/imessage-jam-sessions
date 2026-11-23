@@ -8,7 +8,7 @@ extension PayloadCodec {
         let contentRevision = try reader.varint()
         let round = try reader.varint()
         var warnings: [Warning] = []
-        let history = try readHistory(&reader, mode: mode, warnings: &warnings, config: config)
+        let (history, previousChart) = try readHistory(&reader, mode: mode, warnings: &warnings, config: config)
         let proposalCount = Int(try reader.byte())
         let maxProposals = mode == .duel ? config.payload.maxDuelProposals : config.payload.maxRoundProposals
         guard proposalCount > 0, proposalCount <= maxProposals else { throw Failure.invalidStructure }
@@ -42,7 +42,8 @@ extension PayloadCodec {
         let state = try MatchState(
             matchID: matchID, mode: mode, rulesVersion: rulesVersion, contentRevision: contentRevision,
             round: round, history: history, proposals: proposals, config: config)
-        return Decoded(wireVersion: 2, state: state, warnings: warnings)
+        let referenced = (previousChart.map { [$0] } ?? []) + proposals.map(\.descriptor.chart)
+        return Decoded(wireVersion: 2, state: state, warnings: warnings, referencedCharts: referenced)
     }
 
     static func readMode(_ reader: inout ByteReader) throws -> MatchMode {
@@ -73,7 +74,7 @@ extension PayloadCodec {
 
     static func readHistory(
         _ reader: inout ByteReader, mode: MatchMode, warnings: inout [Warning], config: GameConfig
-    ) throws -> MatchHistory {
+    ) throws -> (MatchHistory, MatchChart?) {
         let seriesCount = Int(try reader.byte())
         guard seriesCount <= 2, mode == .duel || seriesCount == 0 else { throw Failure.invalidStructure }
         var series: [MatchHistory.SeriesWin] = []
@@ -93,6 +94,8 @@ extension PayloadCodec {
                 previous.append(entry)
             }
         }
-        return try MatchHistory(series: series, previousChart: previous.isEmpty ? nil : chart, previous: previous)
+        let history = try MatchHistory(
+            series: series, previousChart: previous.isEmpty ? nil : chart, previous: previous)
+        return (history, chart)
     }
 }
