@@ -13,6 +13,13 @@ extension GameConfig {
         /// Most player entries in one round (plan 5.5).
         public var maxEntries = 32
 
+        /// Most competing proposals retained in a group round (D-097).
+        public var maxRoundProposals = 8
+
+        /// Most competing proposals and entries retained in a duel (D-097).
+        public var maxDuelProposals = 4
+        public var maxDuelEntries = 8
+
         /// Longest nickname, in grapheme clusters (D-018).
         public var maxNicknameCharacters = 16
 

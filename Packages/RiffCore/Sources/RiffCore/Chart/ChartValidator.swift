@@ -29,8 +29,6 @@ public enum ChartValidator {
         return Int(longestSong * fastestRate / TempoMap.scale)
     }
 
-    private static let songIDBytes = Array("abcdefghijklmnopqrstuvwxyz0123456789-".utf8)
-
     private static func structureIssues(in chart: Chart, config: GameConfig) -> [ChartIssue] {
         let charts = config.charts
         var issues: [ChartIssue] = []
@@ -39,8 +37,7 @@ public enum ChartValidator {
                 ChartIssue(.format, "the format must be \(Chart.formatName), version \(charts.schemaVersion)"))
         }
         let idLimit = config.payload.maxSongIDBytes
-        let idBytes = Array(chart.songId.utf8)
-        if idBytes.isEmpty || idBytes.count > idLimit || !idBytes.allSatisfy({ songIDBytes.contains($0) }) {
+        if !SongID.isValid(chart.songId, maxBytes: idLimit) {
             issues.append(ChartIssue(.songId, "songId must be 1 to \(idLimit) characters from a-z, 0-9 and '-'"))
         }
         if chart.lanes != config.highway.laneCount {

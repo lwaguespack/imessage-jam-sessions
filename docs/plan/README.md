@@ -56,7 +56,8 @@ The order the owner set for the current work:
    P1.3 to P1.6 are done.
 4. **Challenge MATCH_PROTOCOL.md**: the test-only merge model and conversation simulator exposed
    lost entries and inconsistent first-observed finality; draft 2 records the proposed corrections
-   (D-097 to D-099). P1.7 progression is done; next are P1.8, P1.9 and the Phase 1 gate.
+   (D-097 to D-099). P1.7 is done and P1.8's merge model is underway; P1.9 and the Phase 1 gate
+   follow.
 5. **Build and architecture review** (D-082), once Phase 1 exists. The content, UX and legal review
    waits for Phase 5 planning. The audio findings still have no skeptic pass.
 6. **Owner decisions** in the table at the top of DECISIONS.md. None blocks work today: each has a

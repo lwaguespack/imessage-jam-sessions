@@ -59,9 +59,10 @@ a penalised ghost before the first hit leaves both unchanged. (D-071, D-098)
 
 ### 3.1 Nicknames
 
-NFC-normalised; at most 16 grapheme clusters **and** at most 32 UTF-8 bytes; no control, newline or
-bidirectional-override scalars. Enforced on input and again on decode; an invalid nickname is
-replaced by "Player", the entry is kept. (D-018)
+NFC-normalised; 1 to 16 grapheme clusters **and** at most 32 UTF-8 bytes; not whitespace-only; no
+control, newline or bidirectional-control scalars (U+061C, U+200E, U+200F, U+202A to U+202E and
+U+2066 to U+2069). Enforced on input and again on decode; an invalid nickname is replaced by
+"Player" and the replacement is reported, while the entry is kept. (D-018, D-110)
 
 ## 4. Merge
 
@@ -154,7 +155,8 @@ States of a finished run: **played**, **staged**, **sending**, **confirmed**. (D
 
 Binary, then base64url without padding. No compression. Encoding is canonical: proposals and entries
 are sorted as in section 4. Integers are unsigned LEB128 unless a size is given; varints are minimal
-and bounded as listed. The version-2 implementation, configuration limits and version-1 decode test
+and bounded as listed. Fixed-width IDs and chart hashes use big-endian byte order. The version-2
+implementation, configuration limits and version-1 decode test
 land together in P1.8. (D-015, D-098)
 
 | Field | Size |
@@ -172,6 +174,9 @@ land together in P1.8. (D-015, D-098)
 History's short entry is player ID 8; score UInt32 varint; accuracy varint; streak UInt32 varint;
 tries 1; `t` UInt32 varint; Full Combo status 1. Series and previous entries are sorted by player ID.
 Round mode has no series; previous has at most two entries in a duel and three in round mode.
+Part `lead` is 0; difficulty is Easy 0, Medium 1, Hard 2, Expert 3. Other enum values are invalid.
+The roster is exactly 2 in a duel and 3 through 32 in a group round; the deadline is 0 for a duel
+and 1 through 255 hours for a group round.
 
 `t0`, `closedAt` and entry `t` are **absolute** unsigned Unix seconds, not offsets: a receiver's
 clock can be behind the starter's. A time is 1 through `UInt32.max`; `closedAt = 0` means open.
@@ -304,6 +309,7 @@ Applied in task P1.0. The table is kept as the record of what changed from PLAN.
 | `match.groupDeadlineHours` | absent | `24` | D-012 |
 | `match.maxTries` | absent | `99` | D-058 |
 
-P1.8 also adds `payload.maxDuelProposals = 4`, `payload.maxRoundProposals = 8`,
-`payload.maxDuelEntries = 8`, and `payload.integrityKeyV2`, then changes `payload.schemaVersion` to
-2. The existing `payload.maxEntries = 32` bounds the total entries in a group round.
+P1.8's merge model added `payload.maxDuelProposals = 4`, `payload.maxRoundProposals = 8` and
+`payload.maxDuelEntries = 8`. The codec adds `payload.integrityKeyV2` and changes
+`payload.schemaVersion` to 2 with the legacy decode test. The existing `payload.maxEntries = 32`
+bounds the total entries in a group round.

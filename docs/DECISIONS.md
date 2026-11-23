@@ -558,3 +558,10 @@ and no featured songs until content exists. Five defaults sit outside the config
 The profile's stable ID is separate from per-install XP counter IDs; joins take counter maxima and
 unlock unions, then derive the level and earned rewards. This keeps future sync mergeable without
 claiming that v1 already syncs.
+
+### D-110 Nicknames and match enum values have explicit boundaries
+**Decided.** An empty or whitespace-only nickname cannot identify a player, and invisible
+bidirectional controls can spoof a card. Nicknames are nonempty, NFC-normalised and reject the
+specified bidi controls; decoding reports when it substitutes the existing "Player" fallback.
+Version-2 enum bytes are fixed for the one current part and four difficulties, and roster sizes are
+bounded by the supported group size.

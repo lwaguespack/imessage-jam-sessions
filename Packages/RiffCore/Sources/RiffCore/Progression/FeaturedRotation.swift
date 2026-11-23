@@ -11,12 +11,9 @@ public struct FeaturedRotation: Equatable, Sendable {
 
     public init(schedule: [String], config: GameConfig) throws {
         guard !schedule.isEmpty else { throw Error.emptySchedule }
-        guard
-            schedule.allSatisfy({ id in
-                !id.isEmpty && id.utf8.count <= config.payload.maxSongIDBytes
-                    && id.utf8.allSatisfy { (97...122).contains($0) || (48...57).contains($0) || $0 == 45 }
-            })
-        else { throw Error.invalidSongID }
+        guard schedule.allSatisfy({ SongID.isValid($0, maxBytes: config.payload.maxSongIDBytes) }) else {
+            throw Error.invalidSongID
+        }
         self.schedule = schedule
         epoch = config.xp.featuredEpochUnixSeconds
     }

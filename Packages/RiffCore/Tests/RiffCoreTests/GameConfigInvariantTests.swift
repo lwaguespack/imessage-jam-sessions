@@ -200,6 +200,7 @@ struct GameConfigInvariantTests {
         let payload = config.payload
         let limits = [
             payload.schemaVersion, payload.maxURLCharacters, payload.maxDuelEncodedBytes, payload.maxEntries,
+            payload.maxDuelProposals, payload.maxRoundProposals, payload.maxDuelEntries,
             payload.maxNicknameCharacters, payload.maxNicknameBytes, payload.matchIDBytes, payload.playerIDBytes,
             payload.chartHashBytes, payload.maxSongIDBytes, payload.tagBytes,
         ]
@@ -208,7 +209,10 @@ struct GameConfigInvariantTests {
         #expect(payload.maxURLCharacters <= 5_000)
         // Base64url turns every 3 bytes into 4 characters.
         #expect((payload.maxDuelEncodedBytes * 4 + 2) / 3 <= payload.maxURLCharacters)
-        #expect(payload.maxEntries >= 2)
+        #expect((3...32).contains(payload.maxEntries))
+        #expect((1...4).contains(payload.maxDuelProposals))
+        #expect((1...8).contains(payload.maxRoundProposals))
+        #expect((2...8).contains(payload.maxDuelEntries))
         #expect(payload.maxNicknameBytes >= payload.maxNicknameCharacters)
         #expect(payload.chartHashBytes <= SHA256.digestLength)
         #expect(payload.tagBytes <= SHA256.digestLength)
