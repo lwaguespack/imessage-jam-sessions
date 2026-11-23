@@ -121,15 +121,10 @@ struct MatchMergeTests {
             let time = UInt32(random.next() % 20 + 1)
             let score = UInt32(random.next() % 1_000)
             let historyEntry = try MatchShortEntry(entry(player, time: time, score: UInt32(random.next() % 1_000)))
-            let history = try MatchHistory(previous: [historyEntry])
-            return try state(
-                [
-                    proposal(
-                        song: song, start: start, starter: starter,
-                        entries: [
-                            entry(player, time: time, score: score)
-                        ])
-                ], history: history, round: 2)
+            let p = try proposal(
+                song: song, start: start, starter: starter, entries: [entry(player, time: time, score: score)])
+            let history = try MatchHistory(previousChart: p.descriptor.chart, previous: [historyEntry])
+            return try state([p], history: history, round: 2)
         }
         for seed in UInt64(0)..<1_000 {
             var random = SplitMix64(seed: seed)

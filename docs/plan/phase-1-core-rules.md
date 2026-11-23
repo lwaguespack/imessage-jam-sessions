@@ -162,9 +162,9 @@ deliberately empty.
 
 ## P1.8 Match
 
-**In progress.** The version-2 model, bounded proposal join, in-memory fragment store and nickname
-validation are implemented and tested. Wire encoding/decoding, finality, ranking, settlement and
-routing remain; the payload schema stays at 1 until the codec and version-1 decode test land.
+**In progress.** The version-2 model, bounded proposal join, in-memory fragment store, nickname
+validation and binary codec are implemented and tested, including a version-1 decode fixture.
+URL handling, chart-aware decoding, finality, ranking, settlement and routing remain.
 
 | File | Contents |
 | --- | --- |

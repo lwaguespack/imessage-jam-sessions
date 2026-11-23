@@ -20,9 +20,9 @@ struct RiffCoreInfoTests {
         #expect(parts.allSatisfy { Int($0).map { $0 >= 0 } ?? false })
     }
 
-    @Test("Schema versions start at 1")
+    @Test("Current schema versions are pinned")
     func schemaVersionsArePositive() {
-        #expect(RiffCoreInfo.payloadSchemaVersion == 1)
+        #expect(RiffCoreInfo.payloadSchemaVersion == 2)
         #expect(RiffCoreInfo.chartSchemaVersion == 1)
     }
 

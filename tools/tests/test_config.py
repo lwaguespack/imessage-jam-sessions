@@ -34,6 +34,7 @@ def test_values_match_the_decisions():
     assert config.get("judging.ghostTapPenalty.expert") == "resetStreak"
     assert config.song_duration_micros() == (60_000_000, 90_000_000)
     assert len(config.get("payload.integrityKeyV1")) == 32
+    assert len(config.get("payload.integrityKeyV2")) == 32
 
 
 def test_windows_widen_outward():

@@ -7,7 +7,7 @@ public enum RiffCoreInfo {
     public static let version = "0.1.0"
 
     /// Version of the match payload schema (plan 5.5, appendix C).
-    public static let payloadSchemaVersion = 1
+    public static let payloadSchemaVersion = 2
 
     /// Version of the chart file format (plan appendix A).
     public static let chartSchemaVersion = 1

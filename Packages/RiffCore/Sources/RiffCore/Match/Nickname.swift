@@ -7,6 +7,7 @@ public enum Nickname {
         case empty
         case tooManyCharacters
         case tooManyBytes
+        case invalidUTF8
         case forbiddenScalar(UInt32)
     }
 
@@ -50,5 +51,15 @@ public enum Nickname {
             guard error != .invalidConfiguration else { throw error }
             return .replaced(reason: error)
         }
+    }
+
+    public static func decode(_ bytes: [UInt8], config: GameConfig) throws -> Decoded {
+        guard config.payload.maxNicknameCharacters >= 6, config.payload.maxNicknameBytes >= 6 else {
+            throw Error.invalidConfiguration
+        }
+        guard let value = String(bytes: bytes, encoding: .utf8) else {
+            return .replaced(reason: .invalidUTF8)
+        }
+        return try decode(value, config: config)
     }
 }

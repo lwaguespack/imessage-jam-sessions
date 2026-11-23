@@ -6,9 +6,7 @@ public struct MatchChart: Equatable, Sendable {
     public let chartHash: UInt32
 
     public init(songID: String, part: Part, difficulty: Difficulty, chartHash: UInt32, config: GameConfig) throws {
-        guard (1...24).contains(config.payload.maxSongIDBytes) else {
-            throw MatchModelError.invalidConfiguration
-        }
+        try MatchConfiguration.validate(config)
         guard SongID.isValid(songID, maxBytes: config.payload.maxSongIDBytes) else {
             throw MatchModelError.invalidSongID
         }
@@ -21,6 +19,15 @@ public struct MatchChart: Equatable, Sendable {
     func validate(config: GameConfig) throws {
         _ = try MatchChart(
             songID: songID, part: part, difficulty: difficulty, chartHash: chartHash, config: config)
+    }
+
+    func write(to writer: inout ByteWriter) {
+        let song = Array(songID.utf8)
+        writer.byte(UInt8(song.count))
+        writer.append(song)
+        writer.byte(part.matchWireValue)
+        writer.byte(difficulty.matchWireValue)
+        writer.fixed32(chartHash)
     }
 }
 
@@ -108,10 +115,15 @@ public struct MatchHistory: Equatable, Sendable {
     }
 
     public let series: [SeriesWin]
+    public let previousChart: MatchChart?
     public let previous: [MatchShortEntry]
 
-    public init(series: [SeriesWin] = [], previous: [MatchShortEntry] = []) throws {
-        guard series.count <= 2, previous.count <= 3 else { throw MatchModelError.invalidHistory }
+    public init(
+        series: [SeriesWin] = [], previousChart: MatchChart? = nil, previous: [MatchShortEntry] = []
+    ) throws {
+        guard series.count <= 2, previous.count <= 3, previous.isEmpty == (previousChart == nil) else {
+            throw MatchModelError.invalidHistory
+        }
         let sortedSeries = series.sorted { $0.playerID < $1.playerID }
         let sortedPrevious = previous.sorted { $0.playerID < $1.playerID }
         for (left, right) in zip(sortedSeries, sortedSeries.dropFirst()) where left.playerID == right.playerID {
@@ -121,6 +133,7 @@ public struct MatchHistory: Equatable, Sendable {
             throw MatchModelError.duplicatePlayer(left.playerID)
         }
         self.series = sortedSeries
+        self.previousChart = previousChart
         self.previous = sortedPrevious
     }
 
@@ -131,6 +144,8 @@ public struct MatchHistory: Equatable, Sendable {
             writer.fixed64(item.playerID)
             writer.varint(item.wins)
         }
+        writer.byte(previousChart == nil ? 0 : 1)
+        if let previousChart { previousChart.write(to: &writer) }
         writer.byte(UInt8(previous.count))
         for item in previous { item.write(to: &writer) }
         return writer.bytes
@@ -152,19 +167,12 @@ public struct MatchState: Equatable, Sendable {
     ) throws {
         guard rulesVersion > 0, contentRevision > 0, round > 0 else { throw MatchModelError.invalidRound }
         guard !proposals.isEmpty else { throw MatchModelError.emptyProposals }
-        guard (3...32).contains(config.payload.maxEntries),
-            (2...8).contains(config.payload.maxDuelEntries),
-            (1...4).contains(config.payload.maxDuelProposals),
-            (1...8).contains(config.payload.maxRoundProposals),
-            (1...99).contains(config.match.maxTries),
-            (6...16).contains(config.payload.maxNicknameCharacters),
-            (6...32).contains(config.payload.maxNicknameBytes),
-            (1...24).contains(config.payload.maxSongIDBytes)
-        else { throw MatchModelError.invalidConfiguration }
+        try MatchConfiguration.validate(config)
         guard mode == .duel || history.series.isEmpty,
             history.previous.count <= (mode == .duel ? 2 : 3),
             round != 1 || history.previous.isEmpty
         else { throw MatchModelError.invalidHistory }
+        if let previousChart = history.previousChart { try previousChart.validate(config: config) }
         for item in history.previous { try item.validate(config: config) }
         for proposal in proposals {
             try proposal.descriptor.validate(mode: mode, config: config)
@@ -211,12 +219,7 @@ public struct MatchState: Equatable, Sendable {
         writer.byte(UInt8(proposals.count))
         for proposal in proposals {
             let descriptor = proposal.descriptor
-            let song = Array(descriptor.chart.songID.utf8)
-            writer.byte(UInt8(song.count))
-            writer.append(song)
-            writer.byte(descriptor.chart.part.matchWireValue)
-            writer.byte(descriptor.chart.difficulty.matchWireValue)
-            writer.fixed32(descriptor.chart.chartHash)
+            descriptor.chart.write(to: &writer)
             writer.fixed64(descriptor.starter)
             writer.varint(descriptor.startTime)
             writer.byte(descriptor.rosterSize)

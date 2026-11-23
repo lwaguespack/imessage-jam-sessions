@@ -522,9 +522,10 @@ is used until overruled.
 **Decided.** The same score and longest streak can be both a Full Combo and not one: a penalised
 ghost before the first hit changes neither. Version 2 carries a Full Combo status. Unsigned time
 offsets also cannot encode a player whose clock is behind the starter, so timestamps become bounded
-absolute Unix seconds. Version 2 bounds proposal count, entry count and varints explicitly; its
-worst-case sizes are 855 bytes for a duel and 2,575 for a group round. P1.8 bumps the schema,
-adds its key and limits to `GameConfig`, and tests a version-1 decode. The draft's version 1 was
+absolute Unix seconds. Version 2 bounds proposal count, entry count and varints explicitly; D-111
+adds the previous chart and raises the conservative size bounds to 887 bytes for a duel and 2,607
+for a group round. P1.8 bumped the schema,
+added its key and limits to `GameConfig`, and tests a version-1 decode. The draft's version 1 was
 never implemented, and its previous-summary bytes were not defined; unsupported legacy variants
 are reported rather than guessed.
 
@@ -565,3 +566,9 @@ bidirectional controls can spoof a card. Nicknames are nonempty, NFC-normalised 
 specified bidi controls; decoding reports when it substitutes the existing "Player" fallback.
 Version-2 enum bytes are fixed for the one current part and four difficulties, and roster sizes are
 bounded by the supported group size.
+
+### D-111 Previous-round summaries identify their chart
+**Decided.** A previous-round score cannot be checked against a ceiling or note count without
+knowing which chart produced it. Version 2 carries the previous chart identity alongside its short
+entries; the flag is absent exactly when the summary is empty. The resulting conservative maximum
+still fits both the 1,024-byte duel limit and the 4,096-character URL limit.

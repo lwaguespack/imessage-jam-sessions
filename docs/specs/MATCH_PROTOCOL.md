@@ -3,10 +3,10 @@
 How a duel or group round is represented, merged, sent in a message, decoded, ranked and settled.
 There is no server: every shared fact travels in a message URL, and every device keeps its own copy.
 
-**Status: draft 2, not yet implemented.** The draft 1 merge and conversation tests found lost entries,
+**Status: draft 2, partially implemented.** The draft 1 merge and conversation tests found lost entries,
 non-associative history selection and an unresolved tie. Decisions D-097 to D-099 specify the
-corrections and their limits. Version 2 and its version-1 decode test land with P1.8; the existing
-`GameConfig` schema number stays 1 until then. Section 13 lists open and device questions. Decisions are `D-0xx` in
+corrections and their limits. The version-2 binary codec and version-1 decode test are implemented;
+URL routing and the chart-aware decode pipeline remain. Section 13 lists open and device questions. Decisions are `D-0xx` in
 [../DECISIONS.md](../DECISIONS.md).
 
 ## 1. Terms
@@ -36,7 +36,7 @@ MatchState
   rulesVersion       GameConfig.rulesVersion of the sender
   contentRevision    integer; rises whenever bundled songs or charts change
   round              r, starting at 1
-  history            one value containing series and previous:
+  history            one value containing series, previousChart and previous:
                      series is duel wins per playerId; previous summarises round r-1
   proposals          set of Proposal; at most 4 in a duel or 8 in a group round
 
@@ -62,7 +62,8 @@ a penalised ghost before the first hit leaves both unchanged. (D-071, D-098)
 NFC-normalised; 1 to 16 grapheme clusters **and** at most 32 UTF-8 bytes; not whitespace-only; no
 control, newline or bidirectional-control scalars (U+061C, U+200E, U+200F, U+202A to U+202E and
 U+2066 to U+2069). Enforced on input and again on decode; an invalid nickname is replaced by
-"Player" and the replacement is reported, while the entry is kept. (D-018, D-110)
+"Player" and the replacement is reported, while the entry is kept. A wire length over 32 bytes
+violates the structural bound and rejects the payload before nickname repair. (D-018, D-110)
 
 ## 4. Merge
 
@@ -156,8 +157,7 @@ States of a finished run: **played**, **staged**, **sending**, **confirmed**. (D
 Binary, then base64url without padding. No compression. Encoding is canonical: proposals and entries
 are sorted as in section 4. Integers are unsigned LEB128 unless a size is given; varints are minimal
 and bounded as listed. Fixed-width IDs and chart hashes use big-endian byte order. The version-2
-implementation, configuration limits and version-1 decode test
-land together in P1.8. (D-015, D-098)
+codec, configuration limits and version-1 decode test landed together. (D-015, D-098)
 
 | Field | Size |
 | --- | --- |
@@ -165,7 +165,7 @@ land together in P1.8. (D-015, D-098)
 | `matchId` | 8 bytes |
 | Flags (bit 0: round mode; all other bits zero) | 1 byte |
 | `rulesVersion`, `contentRevision`, `round` | UInt32 varints, at most 5 bytes each |
-| History | series count + at most two `(playerId: 8, wins: UInt32 varint)`; previous count + at most three short entries as below |
+| History | series count + at most two `(playerId: 8, wins: UInt32 varint)`; previous-chart flag and chart identity; previous count + at most three short entries as below |
 | Proposal count | 1 byte |
 | Each proposal | song ID length + up to 24 ASCII bytes; part 1; difficulty 1; chart hash 4; starter 8; `t0` UInt32 varint; roster size 1; deadline hours 1; `closedAt` UInt32 varint; entry count 1 |
 | Each entry | player ID 8; nickname length + up to 32 UTF-8 bytes; score UInt32 varint; accuracy varint (at most 10,000); streak UInt32 varint; tries, level, title ID, frame ID and Full Combo status 1 byte each; `t` UInt32 varint |
@@ -174,6 +174,9 @@ land together in P1.8. (D-015, D-098)
 History's short entry is player ID 8; score UInt32 varint; accuracy varint; streak UInt32 varint;
 tries 1; `t` UInt32 varint; Full Combo status 1. Series and previous entries are sorted by player ID.
 Round mode has no series; previous has at most two entries in a duel and three in round mode.
+The previous-chart flag is 0 when previous is empty, otherwise 1 followed by song ID, part,
+difficulty and chart hash in the same form as a proposal. This lets the decoder validate the
+previous entries against their own chart's note count and score ceiling. (D-111)
 Part `lead` is 0; difficulty is Easy 0, Medium 1, Hard 2, Expert 3. Other enum values are invalid.
 The roster is exactly 2 in a duel and 3 through 32 in a group round; the deadline is 0 for a duel
 and 1 through 255 hours for a group round.
@@ -191,21 +194,21 @@ corruption and casual edits; it is not a secret. (D-016)
 
 | Case | Upper-bound bytes | Base64url characters |
 | --- | --- | --- |
-| Duel, 4 proposals and 8 entries | 855 | 1,140 |
-| Round mode, 8 proposals and 32 entries | 2,575 | 3,434 |
+| Duel, 4 proposals and 8 entries | 887 | 1,183 |
+| Round mode, 8 proposals and 32 entries | 2,607 | 3,476 |
 
-The bounds use 109 bytes of history, 52 per proposal and 63 per entry, even where a mode's actual
-history is smaller. With the placeholder query URL the group bound is 3,459 characters. The cap is
+The bounds use 141 bytes of history, 52 per proposal and 63 per entry, even where a mode's actual
+history is smaller. With the placeholder query URL the group bound is 3,501 characters. The cap is
 4,096 characters for the whole URL; longer configured domains must be checked too. A unit test
 asserts these bounds and the 1,024-byte duel cap.
 
 ### 10.1 Version 1
 
-Version 1 was documented but never implemented or shipped. P1.8 includes a decode test for a
-version-1, round-1 fixture with no previous summary, promotes its single descriptor to one proposal,
+Version 1 was documented but never implemented or shipped. The codec includes a decode test for a
+version-1, round-1 group fixture with no previous summary, promotes its single descriptor to one proposal,
 converts its non-negative time offsets to absolute times, and marks Full Combo unknown. The draft did
-not define the bytes of its “short entries”; a legacy payload requiring those undefined bytes is
-reported as unsupported, not guessed. Version-1 tags use the existing `integrityKeyV1`.
+not define the bytes of its “short entries”; other legacy variants are reported as unsupported, not
+guessed. Version-1 tags use the existing `integrityKeyV1`.
 
 ### 10.2 URL
 
@@ -310,6 +313,6 @@ Applied in task P1.0. The table is kept as the record of what changed from PLAN.
 | `match.maxTries` | absent | `99` | D-058 |
 
 P1.8's merge model added `payload.maxDuelProposals = 4`, `payload.maxRoundProposals = 8` and
-`payload.maxDuelEntries = 8`. The codec adds `payload.integrityKeyV2` and changes
+`payload.maxDuelEntries = 8`. The codec added `payload.integrityKeyV2` and changed
 `payload.schemaVersion` to 2 with the legacy decode test. The existing `payload.maxEntries = 32`
 bounds the total entries in a group round.

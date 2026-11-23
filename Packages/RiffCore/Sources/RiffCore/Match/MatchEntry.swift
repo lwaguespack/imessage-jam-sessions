@@ -48,10 +48,7 @@ public struct MatchEntry: Equatable, Sendable {
         tries: UInt8, level: UInt8, titleID: UInt8, frameID: UInt8,
         fullCombo: FullComboStatus, finishedAt: UInt32, config: GameConfig
     ) throws {
-        guard config.payload.maxNicknameBytes <= 32, config.payload.maxNicknameCharacters <= 16,
-            (1...99).contains(config.match.maxTries), (1...255).contains(config.levels.maxLevel),
-            (0...255).contains(config.unlocks.titles), (0...255).contains(config.unlocks.scoreCardFrames)
-        else { throw MatchModelError.invalidConfiguration }
+        try MatchConfiguration.validate(config)
         let nickname = try Nickname.normalize(nickname, config: config)
         try Self.validateCommon(accuracy: accuracy, tries: tries, finishedAt: finishedAt, config: config)
         guard level > 0, Int(level) <= config.levels.maxLevel else { throw MatchModelError.invalidLevel }
@@ -81,6 +78,7 @@ public struct MatchEntry: Equatable, Sendable {
     static func validateCommon(
         accuracy: UInt16, tries: UInt8, finishedAt: UInt32, config: GameConfig
     ) throws {
+        try MatchConfiguration.validate(config)
         guard accuracy <= 10_000 else { throw MatchModelError.invalidAccuracy }
         guard tries > 0, Int(tries) <= config.match.maxTries else { throw MatchModelError.invalidTryCount }
         guard finishedAt > 0 else { throw MatchModelError.invalidTimestamp }

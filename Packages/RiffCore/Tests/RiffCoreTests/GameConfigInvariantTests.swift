@@ -223,6 +223,7 @@ struct GameConfigInvariantTests {
         let key = config.payload.integrityKeyV1
         #expect(key.count == SHA256.digestLength)
         #expect(key == SHA256.hash(Array("riff-match-integrity-key-v1".utf8)))
+        #expect(config.payload.integrityKeyV2 == SHA256.hash(Array("riff-match-integrity-key-v2".utf8)))
     }
 
     @Test("Match limits fit the one-byte fields that carry them")
