@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: scripts/check.sh   Runs every check that works without Xcode. Run it before pushing.
+# Usage: scripts/check.sh   Runs local checks before pushing, including the simulator build on macOS.
 set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -26,6 +26,10 @@ step "Example chart is valid" scripts/swiftw run --package-path Packages/RiffCor
 step "Python tools" scripts/test-tools.sh
 step "Icon set is complete" python3 scripts/make-placeholder-icons.py --check
 
-echo
-echo "Not run here (CI runs them on macOS): xcodegen generate, the iOS Simulator build."
+if [[ "$(uname -s)" == Darwin ]]; then
+    step "iOS Simulator build" scripts/build-ios-simulator.sh
+else
+    echo "SKIP  iOS Simulator build (requires macOS and Xcode; CI builds it on macOS)"
+fi
+
 exit "$failed"

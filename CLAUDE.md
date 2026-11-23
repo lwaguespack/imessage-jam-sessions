@@ -14,7 +14,8 @@ duels, group rounds and an XP meta, no server. Every game rule lives in the pure
 
 | Command | When |
 | --- | --- |
-| `scripts/check.sh` | Before every push. Runs everything that works without Xcode. |
+| `scripts/check.sh` | Before every push. Runs local checks and, on macOS, the iOS Simulator build. |
+| `scripts/build-ios-simulator.sh` | On macOS: generates `Riff.xcodeproj` and builds the unsigned Riff scheme for the iOS Simulator. |
 | `scripts/test-core.sh [--filter Name]` | While working on `RiffCore`. |
 | `scripts/test-tools.sh` | While working on `tools/`. |
 | `scripts/swiftw format --in-place --recursive Packages RiffMessages` | Before committing Swift. |
@@ -23,13 +24,17 @@ duels, group rounds and an XP meta, no server. Every game rule lives in the pure
 | `scripts/coverage-core.sh [--min N Dir...]` | Line coverage of `RiffCore`, file by file; `--min` enforces it per directory. |
 | `scripts/bootstrap.sh` | macOS only: generates `Riff.xcodeproj`. |
 
-## Building without a Mac
+## Building with or without a Mac
 
-Cloud sessions run Linux: there is no Xcode. `scripts/swiftw` runs Swift natively or in Docker
-(`swift:6.2-noble`; it starts `dockerd` itself if needed), which covers `RiffCore`. Anything that needs
-Xcode is verified by the `ios` job in `.github/workflows/ci.yml`: push, then read the job log. Extension
-code cannot be compiled locally, so check every Apple API signature against the documentation before
-pushing.
+On macOS with Xcode and XcodeGen, run `scripts/bootstrap.sh` once to generate the project, then
+`scripts/build-ios-simulator.sh` to build the unsigned Riff scheme for the iOS Simulator.
+`scripts/check.sh` runs this build automatically on macOS.
+
+Cloud sessions run Linux, where there is no Xcode. `scripts/swiftw` runs Swift natively or in Docker
+(`swift:6.2-noble`; it starts `dockerd` itself if needed), which covers `RiffCore`. The `ios` job in
+`.github/workflows/ci.yml` generates the project and builds the simulator target on a macOS runner.
+Extension code cannot be compiled locally on Linux, so check every Apple API signature against the
+documentation before pushing.
 
 ## Hard rules
 

@@ -33,6 +33,7 @@ Where these disagree, DECISIONS.md and the specs win over PLAN.md.
 ```sh
 scripts/bootstrap.sh          # installs XcodeGen if needed, creates Config/Local.xcconfig, generates Riff.xcodeproj
 # edit Config/Local.xcconfig: set RIFF_BUNDLE_PREFIX and DEVELOPMENT_TEAM, then run bootstrap again
+scripts/build-ios-simulator.sh # generate the project and build the unsigned simulator app
 open Riff.xcodeproj
 ```
 
@@ -55,8 +56,10 @@ scripts/coverage-core.sh      # RiffCore line coverage, file by file
 `scripts/swiftw` runs `swift` from a local toolchain, or in Docker (`swift:6.2-noble`) when there is none,
 so the core package builds and tests on Linux as well as macOS.
 
-CI (GitHub Actions) runs on every push: RiffCore on Linux, the Python tools, and on a macOS runner
-`xcodegen generate` plus an unsigned iOS Simulator build and the RiffCore tests.
+CI (GitHub Actions) runs on pushes to `main` and `claude/**`, on pull requests, and when manually
+dispatched. It checks RiffCore on Linux, the Python tools, and on a macOS runner generates the Xcode
+project, builds the unsigned iOS Simulator app, and tests RiffCore. `scripts/check.sh` also runs the
+simulator build automatically on macOS.
 
 ## Layout
 
