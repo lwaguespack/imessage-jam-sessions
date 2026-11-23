@@ -54,9 +54,9 @@ The order the owner set for the current work:
    TestFlight setup.
 3. **Challenge GAME_RULES.md**, whose findings had no skeptic pass: done (draft 2, D-092 to D-095).
    P1.3 to P1.6 are done.
-4. **Challenge MATCH_PROTOCOL.md**, with the merge property tests and the conversation simulator
-   written first, then tasks P1.7 to P1.9 and the Phase 1 gate. Until each challenge is done, its
-   spec stays marked draft 1.
+4. **Challenge MATCH_PROTOCOL.md**: the test-only merge model and conversation simulator exposed
+   lost entries and inconsistent first-observed finality; draft 2 records the proposed corrections
+   (D-097 to D-099). Next are P1.7 to P1.9 and the Phase 1 gate.
 5. **Build and architecture review** (D-082), once Phase 1 exists. The content, UX and legal review
    waits for Phase 5 planning. The audio findings still have no skeptic pass.
 6. **Owner decisions** in the table at the top of DECISIONS.md. None blocks work today: each has a

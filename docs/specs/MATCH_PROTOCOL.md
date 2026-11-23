@@ -3,9 +3,10 @@
 How a duel or group round is represented, merged, sent in a message, decoded, ranked and settled.
 There is no server: every shared fact travels in a message URL, and every device keeps its own copy.
 
-**Status: draft 1.** Built from PLAN.md sections 5 and 6 and the review (MSG-1 to MSG-15, MATCH-1 to
-MATCH-20). Only the Messages findings have had a skeptic pass. Section 13 lists what is open,
-including everything a real device must confirm. Decisions are `D-0xx` in
+**Status: draft 2, not yet implemented.** The draft 1 merge and conversation tests found lost entries,
+non-associative history selection and an unresolved tie. Decisions D-097 to D-099 specify the
+corrections and their limits. Version 2 and its version-1 decode test land with P1.8; the existing
+`GameConfig` schema number stays 1 until then. Section 13 lists open and device questions. Decisions are `D-0xx` in
 [../DECISIONS.md](../DECISIONS.md).
 
 ## 1. Terms
@@ -35,20 +36,26 @@ MatchState
   rulesVersion       GameConfig.rulesVersion of the sender
   contentRevision    integer; rises whenever bundled songs or charts change
   round              r, starting at 1
+  history            one value containing series and previous:
+                     series is duel wins per playerId; previous summarises round r-1
+  proposals          set of Proposal; at most 4 in a duel or 8 in a group round
+
+Proposal
   descriptor         songId, part, difficulty, chartHash (4 bytes), starter (playerId), t0 (Unix seconds),
                      rosterSize n, deadlineHours (0 in a duel)
   closedAt           Unix seconds, or 0 while not closed
-  entries            set of Entry, at most one per playerId
-  series             duel only: wins per playerId over completed rounds
-  previous           summary of round r-1: both entries (duel) or the top three (round mode); empty for r = 1
+  entries            set of Entry, at most one per playerId within this proposal
 
 Entry
   playerId, nickname, score, accuracy (basis points), longestStreak, tries (1 to 99),
-  level, titleId, frameId, t (Unix seconds when the run finished)
+  level, titleId, frameId, fullCombo, t (Unix seconds when the run finished)
 ```
 
-Stars and Full Combo are not stored: they are derived from the score, the chart and the streak.
-(D-071)
+Across all proposals there are at most 8 entries in a duel or 32 in a group round. An entry belongs
+to the chart in its proposal, even when that proposal does not win. New entries carry `fullCombo` as
+true or false; a version-1 import may be unknown. Stars are derived from score and the chart, and
+Gold also needs a known true `fullCombo`. Score and longest streak alone cannot establish Full Combo:
+a penalised ghost before the first hit leaves both unchanged. (D-071, D-098)
 
 ### 3.1 Nicknames
 
@@ -58,43 +65,57 @@ replaced by "Player", the entry is kept. (D-018)
 
 ## 4. Merge
 
-Every device keeps a `MatchStore`: for each match id, the merge of every state it has decoded or sent.
-`merge(a, b)` must be commutative, associative and idempotent. (D-011)
+Every device keeps a `MatchStore` of received and sent states, keyed by match id and round.
+For compatible states whose full join fits the limits, `merge(a, b)` is commutative, associative and
+idempotent. (D-011, D-097)
 
 1. Different `matchId`: not mergeable.
-2. Different round numbers: the state with the higher `r` wins whole. (Its `previous` field carries
-   the result of the round before it.)
-3. Same `r`, **same chart** (song, part, difficulty, chart hash): the descriptor is the one with the
-   smaller `(t0, starter)`; entries are the union keyed by `playerId`; when both have an entry for
-   one player, keep the one with the smaller `t`, then the smaller encoded bytes; `closedAt` is the
-   smaller non-zero value. This covers two players who start the same rematch at once: the round is
-   simply complete. (D-013)
-4. Same `r`, **different chart**: a conflict. The state with the smaller `(t0, starter)` wins whole.
-   The device whose run lost keeps it as a personal best, keeps its finish XP, and shows "Sam started
-   round 4 first. Your run was saved; play Sam's song."
-5. `series` and `previous` are equal for equal `r` by construction. If they differ, take them from the
-   state whose encoded bytes are smaller.
+2. Different mode, `rulesVersion` or `contentRevision`: incompatible, not merged. The decode pipeline
+   handles revision mismatches; the store keeps the original fragments.
+3. Different round numbers: the higher round is the current view, but the store retains each round
+   separately. A payload carries only the current round and a summary of the immediately previous
+   round; it cannot repair every arbitrarily old round on its own.
+4. A proposal's immutable key is `(t0, starter, songId, part, difficulty, chartHash, rosterSize,
+   deadlineHours)`, compared in that order. IDs and hashes compare by unsigned bytes, song IDs by
+   ASCII bytes, and enums by their wire values. Union proposals by this key; within one proposal,
+   union entries by `playerId` and choose the smaller `(t, canonicalEntryBytes)` on duplicates.
+   `closedAt` is the smaller non-zero value. Sort proposals by key and entries by `playerId`.
+5. Merge `history` as one value: choose the lexicographically smaller **canonical history bytes**,
+   independent of proposals and entries. Choosing by whole-state bytes is not associative.
+6. The smallest proposal key wins. Its descriptor and `closedAt` describe the round. The visible
+   entries are the union, with the same per-player tie-break, of entries in **all** proposals for
+   its chart (song, part, difficulty and hash). Entries for other charts remain in the state and
+   their owners keep their personal best and finish XP. Thus same-chart rematches combine even if a
+   different-chart proposal arrives between them. (D-013)
+7. If the full union exceeds either the proposal or entry limit, return **capacity exceeded**:
+   preserve the original fragments locally and block re-posting that union. Never truncate entries or
+   silently choose one fragment. The merge laws apply when every join in the expression fits. (D-097)
 
 Use of the store:
 
 - `didReceive`, `willBecomeActive` and `didSelect` all route the decoded state into the store, also
-  mid-song.
-- An outgoing message always carries `merge(store, selected) + my entry`, never the selected state
-  alone.
+  mid-song. The store preserves unmergeable and over-capacity fragments and reports the reason.
+- An outgoing message carries the full join of compatible fragments and my entry, never the selected
+  state alone. If that join exceeds capacity it is not sent.
 - **Re-post.** If the tapped bubble lacks an entry the store has, the match screen shows the merged
   standings and offers "Re-post", which inserts the merged state without replaying.
 
 ## 5. When a round is final
 
-**Duel.** Final when it holds entries from two different players. If a third id ever appears, the
-round uses the starter's entry and the earliest other entry; the rest are ignored.
+**Duel.** Final when the winning chart has the winning starter's entry and an entry from another
+player. If more than one other id appears, use the earliest `(t, playerId)` as the opponent; keep
+the other entries in the state.
 
-**Round mode.** The end time is `F = min(t0 + deadline, closedAt if set)`. Standings are the entries
-with `t <= F`; later ones are shown as late. The round is final when `closedAt` is set, or the entry
-count reaches `n`, or the local clock passes `t0 + deadline`. Only the starter's device offers
-"Close round". The deadline is 24 hours (D-012, owner decision).
+**Round mode.** The end time is `F = min(t0 + deadline, max(t0, closedAt) if set)`. Standings are
+the winning-chart entries with `t <= F`; later ones are shown as late. The round is final when
+`closedAt` is set, the eligible entry count reaches `n`, or the local clock passes `t0 + deadline`.
+Only the winning starter's device offers "Close round". The deadline is 24 hours (D-012).
 
-A final round is never reopened. After it is final, any participant may start round `r + 1`.
+A device records which proposal it first saw as final and does not silently reopen it. If a newly
+arrived earlier proposal changes that winner, show a conflict and block normal rematch/settlement
+until the user starts a new match. Late entries for the same winning proposal can still change
+standings. Without a server, clocks and message delivery cannot guarantee every device first sees the
+same final snapshot. (D-099)
 
 ## 6. Ranking
 
@@ -104,16 +125,18 @@ score descending, accuracy descending, longest streak descending, tries ascendin
 
 ## 7. Starting the next round
 
-The device that starts round `r + 1` builds: `round = r + 1`; a new descriptor; `entries` holding its
-own run; `series` with the winner of round `r` incremented (duel); `previous` summarising round `r`;
-`closedAt = 0`. A rematch may use the same song or a new one.
+The device that starts round `r + 1` builds a state with one new proposal containing its own run and
+`closedAt = 0`. Its history carries the duel series and the previous round's two duel entries or top
+three group entries. A rematch may use the same song or a new one.
 
 ## 8. Settlement
 
 Bonus XP (duel win, podium) is paid from a **ledger** in the local store, keyed by `(matchId, round)`.
 A device pays its own player once, the first time it sees a final round containing its own entry,
 either as the current round or through `previous` of a later state. Reopening a bubble never pays
-again. A late-delivered entry does not re-pay or claw back. (D-014)
+again. The ledger record and XP update must be persisted atomically. A late-delivered entry does not
+re-pay or claw back, even if it changes the eventual winner; two devices can therefore have paid
+different first-observed winners. This is an explicit limitation, not global agreement. (D-014, D-099)
 
 ## 9. Submitting a turn
 
@@ -127,47 +150,59 @@ States of a finished run: **played**, **staged**, **sending**, **confirmed**. (D
    offers "Send your score" again without replaying.
 6. **Confirmed** only when the entry is seen in a non-pending message.
 
-## 10. Wire format, version 1
+## 10. Wire format, version 2
 
-Binary, then base64url without padding. No compression. Encoding is canonical: equal states give
-equal bytes (entries sorted by `playerId`). Integers are unsigned LEB128 varints unless a size is
-given. (D-015)
+Binary, then base64url without padding. No compression. Encoding is canonical: proposals and entries
+are sorted as in section 4. Integers are unsigned LEB128 unless a size is given; varints are minimal
+and bounded as listed. The version-2 implementation, configuration limits and version-1 decode test
+land together in P1.8. (D-015, D-098)
 
 | Field | Size |
 | --- | --- |
-| Wire version (`1`) | 1 byte, always first, so any future client can read it |
+| Wire version (`2`) | 1 byte, always first |
 | `matchId` | 8 bytes |
-| Flags (bit 0: round mode) | 1 byte |
-| `rulesVersion`, `contentRevision`, `round` | varints |
-| `songId` | length byte + up to 24 ASCII bytes |
-| `part`, `difficulty` | 1 byte each |
-| `chartHash` | 4 bytes |
-| `starter` | 8 bytes |
-| `t0` | varint |
-| `rosterSize`, `deadlineHours` | 1 byte each |
-| `closedAt` as seconds after `t0`, 0 if open | varint |
-| Entry count | 1 byte |
-| Each entry: `playerId` 8, nickname length + up to 32, `score`, `accuracy`, `longestStreak` varints, `tries`, `level`, `titleId`, `frameId` 1 byte each, `t` as seconds after `t0` varint | up to 56 bytes |
-| Duel: two `(playerId, wins)` pairs, then `previous` (flag, two short entries) | up to 55 bytes |
-| Round mode: `previous` (count, up to three `(playerId, score)`) | up to 37 bytes |
+| Flags (bit 0: round mode; all other bits zero) | 1 byte |
+| `rulesVersion`, `contentRevision`, `round` | UInt32 varints, at most 5 bytes each |
+| History | series count + at most two `(playerId: 8, wins: UInt32 varint)`; previous count + at most three short entries as below |
+| Proposal count | 1 byte |
+| Each proposal | song ID length + up to 24 ASCII bytes; part 1; difficulty 1; chart hash 4; starter 8; `t0` UInt32 varint; roster size 1; deadline hours 1; `closedAt` UInt32 varint; entry count 1 |
+| Each entry | player ID 8; nickname length + up to 32 UTF-8 bytes; score UInt32 varint; accuracy varint (at most 10,000); streak UInt32 varint; tries, level, title ID, frame ID and Full Combo status 1 byte each; `t` UInt32 varint |
 | Tag | 8 bytes |
 
-**Tag.** The first 8 bytes of HMAC-SHA256 over the ASCII string `riff-match-v1` followed by every
-preceding byte, with the constant key `GameConfig.payload.integrityKeyV1`. It detects corruption and
-casual edits; it is not a secret. (D-016)
+History's short entry is player ID 8; score UInt32 varint; accuracy varint; streak UInt32 varint;
+tries 1; `t` UInt32 varint; Full Combo status 1. Series and previous entries are sorted by player ID.
+Round mode has no series; previous has at most two entries in a duel and three in round mode.
+
+`t0`, `closedAt` and entry `t` are **absolute** unsigned Unix seconds, not offsets: a receiver's
+clock can be behind the starter's. A time is 1 through `UInt32.max`; `closedAt = 0` means open.
+Full Combo status is 0 for no, 1 for yes, 2 for unknown legacy data; other values are invalid.
+New runs write only 0 or 1. The UInt32 time bound needs revisiting before 2106.
+
+**Tag.** The first 8 bytes of HMAC-SHA256 over ASCII `riff-match-v2` followed by every preceding
+byte, with `GameConfig.payload.integrityKeyV2 = SHA256("riff-match-integrity-key-v2")`. It detects
+corruption and casual edits; it is not a secret. (D-016)
 
 **Size**, computed from the field maxima:
 
-| Case | Bytes | URL payload characters |
+| Case | Upper-bound bytes | Base64url characters |
 | --- | --- | --- |
-| Duel, typical | 177 | 236 |
-| Duel, worst case | 241 | 322 |
-| Round mode, 32 entries, worst case | 1,903 | 2,538 |
+| Duel, 4 proposals and 8 entries | 855 | 1,140 |
+| Round mode, 8 proposals and 32 entries | 2,575 | 3,434 |
 
-The cap is 4,096 characters for the whole URL; Apple's limit is 5,000. A unit test asserts the
-worst-case formula against the cap.
+The bounds use 109 bytes of history, 52 per proposal and 63 per entry, even where a mode's actual
+history is smaller. With the placeholder query URL the group bound is 3,459 characters. The cap is
+4,096 characters for the whole URL; longer configured domains must be checked too. A unit test
+asserts these bounds and the 1,024-byte duel cap.
 
-### 10.1 URL
+### 10.1 Version 1
+
+Version 1 was documented but never implemented or shipped. P1.8 includes a decode test for a
+version-1, round-1 fixture with no previous summary, promotes its single descriptor to one proposal,
+converts its non-negative time offsets to absolute times, and marks Full Combo unknown. The draft did
+not define the bytes of its “short entries”; a legacy payload requiring those undefined bytes is
+reported as unsupported, not guessed. Version-1 tags use the existing `integrityKeyV1`.
+
+### 10.2 URL
 
 Three candidate forms; the device spike picks one (D-017). The decoder accepts all three.
 
@@ -177,20 +212,22 @@ Three candidate forms; the device spike picks one (D-017). The decoder accepts a
 
 Until a domain is chosen the placeholder is `riff.invalid`, which never resolves.
 
-### 10.2 Decoding
+### 10.3 Decoding
 
 An ordered pipeline; each step has its own outcome. (D-019)
 
 1. URL longer than 4,096 characters: unreadable.
 2. Extract and base64url-decode the payload: unreadable on failure.
 3. Wire version above what this build knows: **Update needed**.
-4. Tag mismatch: unreadable.
-5. Structural bounds (lengths, counts, enumerations): unreadable.
+4. Check the tag with the key for that wire version: unreadable on mismatch.
+5. Structural bounds (lengths, counts, enumerations): unreadable. A version-1 variant whose layout
+   was never defined is **unsupported legacy message**.
 6. `rulesVersion` or `contentRevision` above mine: **Update needed**. Below mine: **"Ask Sam to
    update"**.
 7. Unknown song, or chart hash mismatch at equal revisions: unreadable.
 8. Per entry: score at most the chart's ceiling, accuracy at most 10,000, streak at most the note
-   count, tries at least 1. A failing entry is dropped; the match is kept.
+   count, tries at least 1. A known true Full Combo also requires streak equal to note count. A
+   failing entry is dropped; the match is kept.
 
 "Unreadable" shows "Couldn't read this challenge" with Start new.
 
@@ -206,6 +243,7 @@ it clears only when a different message is selected. The function lives in `Riff
 | --- | --- |
 | No selection, or the flag is set | Home |
 | Decode outcome is Update needed, ask to update, or unreadable | The matching notice |
+| The full join exceeds capacity, or a previously final winner changed | An explicit conflict notice; preserve fragments |
 | Open round, no stored entry of mine | Your turn |
 | Open round, my entry stored but not in the bubble | Send your score, or Re-post |
 | Open round, my entry confirmed | Waiting, with standings |
@@ -230,7 +268,8 @@ and is opaque. (D-022)
 | What SMS, RCS and mixed groups receive, and whether the extension can detect them | Spike S2 |
 | Does the undocumented participant-name placeholder render real names | Spike S2 |
 | An open duel round the opponent never answers: may the waiting player withdraw | Owner; default: start a new match from the drawer |
-| A bound on `series` and long matches | None needed: `series` is two counters and only one round is carried |
+| How to recover arbitrarily old round details after several rematches | Open: only the current and previous round travel in one payload |
+| A bound on `series` and long matches | Two UInt32 counters; reject overflow rather than wrap |
 
 ## 14. Required tests (Phase 1)
 
@@ -264,3 +303,7 @@ Applied in task P1.0. The table is kept as the record of what changed from PLAN.
 | `payload.maxSongIDBytes` | absent | `24` | D-015 |
 | `match.groupDeadlineHours` | absent | `24` | D-012 |
 | `match.maxTries` | absent | `99` | D-058 |
+
+P1.8 also adds `payload.maxDuelProposals = 4`, `payload.maxRoundProposals = 8`,
+`payload.maxDuelEntries = 8`, and `payload.integrityKeyV2`, then changes `payload.schemaVersion` to
+2. The existing `payload.maxEntries = 32` bounds the total entries in a group round.

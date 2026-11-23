@@ -12,6 +12,7 @@ two review areas (build and content/UX/legal) did not run. PLAN_REVIEW.md says w
 - **Decided**: an engineering call made during the plan review. Reversible; say so and it changes.
 - **Owner**: needs your call. The default shown is what the work assumes until you answer.
 - **Device**: a real device has to confirm it. The device spike (Phase S) lists the test.
+- **Superseded**: a later decision replaces the earlier call.
 
 ## Open decisions for the owner
 
@@ -95,11 +96,11 @@ device" instead of "Your turn".
 ### D-011 Match state is mergeable, and each device keeps its own copy
 **Decided.** As planned, two people who play from the same bubble each send a state that omits the
 other, and Messages keeps only the later message: a score silently disappears (MSG-1, MATCH-1).
-Now: entries form a grow-only set keyed by round and player; merging two states is commutative,
-associative and idempotent; every device keeps a `MatchStore` holding the merge of everything it has
-decoded or sent; an outgoing message always carries the merged state; and if a tapped bubble lacks
-an entry the device knows about, the match screen offers "Re-post" to repair the bubble without
-replaying. Exact rules: [specs/MATCH_PROTOCOL.md](specs/MATCH_PROTOCOL.md).
+Now: entries live in a grow-only set of proposals per round; compatible joins within the payload
+limits are commutative, associative and idempotent. Every device keeps its received fragments and
+re-posts their join. If the join exceeds the limits, it preserves the fragments and reports the
+conflict rather than dropping scores. Exact rules: [specs/MATCH_PROTOCOL.md](specs/MATCH_PROTOCOL.md)
+and D-097.
 
 ### D-012 A group round ends when closed, when everyone counted at the start has played, or after 24 hours
 **Owner (duration).** "Everyone has submitted" never happens in a real group chat: members without
@@ -319,10 +320,10 @@ defined numerically (GAME-11).
 **Owner.** The plan said 60 to 90 in two places and 60 to 120 in two others; 120 breaks the
 "under two minutes" pillar (GAME-13).
 
-### D-063 The score ceiling is tightened
-**Decided.** The ceiling used to reject impossible scores assumed Hype for the whole song. It now
-allows Hype only for as many beats as the chart's phrases can fund (GAME-15). The plan's example
-score, 412,300, exceeded its own chart's ceiling and is corrected.
+### D-063 A tighter score ceiling was proposed
+**Superseded by D-095.** The proposed Hype-window bound was not proved for separated activations,
+early hits and concurrent holds. The conservative whole-song Hype ceiling remains until a tighter
+bound is proved. The plan's example score, 412,300, exceeded its chart's ceiling.
 
 ### D-064 Touch geometry is defined against the game view and settled in the spike
 **Device.** The plan put the strike line inside the touch zone while claiming thumbs never cover
@@ -336,10 +337,10 @@ decided on a phone.
 "no accounts, no network" and says so on the Profile screen. The stored model is merge-safe (XP as
 a per-install counter, unlocks as a grow-only set) so iCloud sync can be added without a migration.
 
-### D-071 Payload schema v1 field list
-**Decided.** Adds roster size, deadline, attempt count, equipped title and frame, content revision,
-rules version and the previous-round summary; drops stars and Full Combo, which are derived
-(MATCH-12).
+### D-071 Payload field list
+**Revised by D-098.** Adds roster size, deadline, attempt count, equipped title and frame, content
+revision, rules version and the previous-round summary. Stars are derived, but Full Combo cannot be
+derived from score and longest streak, so version 2 carries its status.
 
 ### D-072 XP is one integer formula
 **Decided.** Events are summed, then streak, featured and practice multipliers apply as integer
@@ -356,8 +357,9 @@ percentages with one floor. Day one of a streak is +0%, day two +10%, capped at 
 
 ### D-076 Match and progression rules get a randomised convergence test and shared golden vectors
 **Decided.** A simulator inside the `RiffCore` tests runs several devices through random message
-orderings, duplicates, reinstalls and second devices, asserting convergence, no lost entry and
-exactly-once XP (MATCH-20, adapted: written in Swift, since Swift now runs in every session).
+orderings, duplicates, reinstalls and second devices, asserting convergence and no lost entry for
+joins within the limits, plus at-most-once local settlement. D-099 records why first-observed
+standings and payouts cannot be guaranteed to agree across disconnected devices.
 
 ## Carried into the first tasks
 
@@ -503,3 +505,34 @@ processes the remaining events at that timestamp. A pause before an already-queu
 rejected rather than silently discarding that input. Run logs record effective and original input
 times, late status, synthetic releases and the final timestamp. An unfinished log cannot be turned
 into a completed score by replaying the remaining chart as Misses.
+
+### D-097 Keep concurrent proposals rather than picking a whole state
+**Decided.** Draft merge failed associativity: for chart X at t=10, chart Y at t=15 and chart X at
+t=20, the two groupings keep `{a,c}` and `{a}` respectively. A three-device simulation also lost
+`c` before re-posting. Choosing history by whole-state bytes is independently non-associative, and
+equal `(t0, starter)` values did not break different-chart ties. Version 2 keeps the union of
+immutable proposals, merges entries within each, and chooses history by its own canonical bytes.
+Same-chart entries remain available even across a competing chart. Joins that exceed the explicit
+size limits fail without truncation; the store keeps the original fragments and the UI blocks the
+re-post. The owner was unavailable when asked about this overflow policy, so the lossless default
+is used until overruled.
+
+### D-098 Version 2 carries Full Combo and absolute times
+**Decided.** The same score and longest streak can be both a Full Combo and not one: a penalised
+ghost before the first hit changes neither. Version 2 carries a Full Combo status. Unsigned time
+offsets also cannot encode a player whose clock is behind the starter, so timestamps become bounded
+absolute Unix seconds. Version 2 bounds proposal count, entry count and varints explicitly; its
+worst-case sizes are 855 bytes for a duel and 2,575 for a group round. P1.8 bumps the schema,
+adds its key and limits to `GameConfig`, and tests a version-1 decode. The draft's version 1 was
+never implemented, and its previous-summary bytes were not defined; unsupported legacy variants
+are reported rather than guessed.
+
+### D-099 Finality and settlement are local observations
+**Decided.** With arbitrary message delays and no server, the first device can see A beat B's later
+run while another sees B's earlier, better run. A later merge chooses the earlier B run, but
+irreversible first-observed payouts cannot be made globally consistent afterward. The existing
+no-clawback ledger remains at-most-once per local match and round, and the ledger and XP update must
+be persisted atomically. Standings may change when late entries arrive. A device never silently
+reopens its final proposal: if an earlier proposal later wins, it shows a conflict and blocks normal
+rematch/settlement. The owner was unavailable when asked; this conservative behavior is used until
+overruled.
