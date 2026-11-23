@@ -103,6 +103,9 @@ chords judged independently; every ghost-tap exemption.
 
 ## P1.4 Score, holds and Hype
 
+**Done.** The three components use integer arithmetic and expose explicit errors for invalid
+configuration, event ordering and overflow. P1.5 connects them through the event watermark.
+
 | File | Contents |
 | --- | --- |
 | `Engine/ScoreKeeper.swift` | Streak, multiplier, note points, the sustain accumulator `U` |
