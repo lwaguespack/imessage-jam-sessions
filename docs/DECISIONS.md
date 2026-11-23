@@ -345,6 +345,7 @@ derived from score and longest streak, so version 2 carries its status.
 ### D-072 XP is one integer formula
 **Decided.** Events are summed, then streak, featured and practice multipliers apply as integer
 percentages with one floor. Day one of a streak is +0%, day two +10%, capped at +50% (MATCH-15).
+D-107 corrects the percentage divisor and specifies that deferred match bonuses are flat.
 
 ### D-073 Daily streak survives travel and ignores clock tricks
 **Decided.** Stores the last run time in UTC, the local day, and a high-water mark (MATCH-16).
@@ -536,3 +537,24 @@ be persisted atomically. Standings may change when late entries arrive. A device
 reopens its final proposal: if an earlier proposal later wins, it shows a conflict and blocks normal
 rematch/settlement. The owner was unavailable when asked; this conservative behavior is used until
 overruled.
+
+### D-107 Progression XP uses three percentage factors and a single floor
+**Decided.** The review's printed divisor of 20,000 is incorrect for three factors expressed as
+percentages; it must be 1,000,000. Run events are summed before applying streak, featured and
+practice factors once. Deferred duel/podium bonuses are flat, as the review recommended, so they do
+not require reconstructing an earlier run's multiplier context. The original plan's award for every
+finished run remains, including zero-star runs; no new anti-idle threshold is imposed.
+
+### D-108 Streak dates use injected UTC and local offsets
+**Decided.** A completed run is attributed to its local Gregorian day at run end. The latest accepted
+UTC time and the highest credited local day never move backwards; a skipped local day within 48
+hours gets travel grace. A later run on an already credited day updates the last-run time but not
+the streak or bonus. A device clock can still be set forward repeatedly: no server means there is no
+trusted time source to prevent that.
+
+### D-109 Progression data is explicit and profile XP is a grow-only counter
+**Decided.** The checked-in progression catalogue lists every level, with placeholder cosmetic IDs
+and no featured songs until content exists. Five defaults sit outside the configured unlock counts.
+The profile's stable ID is separate from per-install XP counter IDs; joins take counter maxima and
+unlock unions, then derive the level and earned rewards. This keeps future sync mergeable without
+claiming that v1 already syncs.

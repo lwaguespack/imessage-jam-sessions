@@ -263,7 +263,9 @@
     "titles": 15
   },
   "xp": {
+    "dailyTravelGraceSeconds": 172800,
     "duelWin": 75,
+    "featuredEpochUnixSeconds": 1767571200,
     "featuredSongPercent": 150,
     "finishRun": 100,
     "firstRunOfDay": 100,

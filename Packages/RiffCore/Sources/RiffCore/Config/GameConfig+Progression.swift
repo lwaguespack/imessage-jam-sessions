@@ -33,6 +33,12 @@ extension GameConfig {
 
         /// XP earned by a practice run, as a percentage of normal: half (plan 6.1).
         public var practicePercent = 50
+
+        /// A skipped local day still advances the streak if less real time than this has elapsed (D-108).
+        public var dailyTravelGraceSeconds: Int64 = 172_800
+
+        /// Monday 2026-01-05 00:00 UTC, the fixed epoch for the featured rotation (D-074).
+        public var featuredEpochUnixSeconds: Int64 = 1_767_571_200
     }
 
     /// The level curve: going from level L to L + 1 costs `xpToAdvanceBase + xpToAdvancePerLevel * L` (plan 6.2).

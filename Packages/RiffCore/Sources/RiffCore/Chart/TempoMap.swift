@@ -75,19 +75,13 @@ public struct TempoMap: Equatable, Sendable {
     /// The last tick whose time is at or before `time`.
     public func tick(atTime time: Int64) -> Int {
         let segment = segments.last(where: { $0.startTime <= time }) ?? segments[0]
-        let ticks = Self.floorDivide((time - segment.startTime) * rate(of: segment), by: Self.scale)
+        let ticks = IntegerMath.floorDivide((time - segment.startTime) * rate(of: segment), by: Self.scale)
         return segment.startTick + Int(ticks)
     }
 
     /// Ticks per `scale` microseconds.
     private func rate(of segment: Segment) -> Int64 {
         Int64(segment.mbpm) * Int64(resolution)
-    }
-
-    /// The quotient rounded toward minus infinity. `divisor` must be positive.
-    private static func floorDivide(_ dividend: Int64, by divisor: Int64) -> Int64 {
-        let quotient = dividend / divisor
-        return dividend % divisor < 0 ? quotient - 1 : quotient
     }
 
     /// The quotient rounded toward plus infinity. `divisor` must be positive.

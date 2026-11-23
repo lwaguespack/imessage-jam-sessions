@@ -144,6 +144,10 @@ stored base score of the example chart.
 
 ## P1.7 Progression
 
+**Done.** [PROGRESSION.md](../specs/PROGRESSION.md) specifies integer XP, injected time and UTC
+offsets, the featured schedule, explicit unlocks and merge-safe per-install XP counters. The
+featured schedule is empty until songs exist; the cosmetic IDs are placeholders.
+
 | File | Contents |
 | --- | --- |
 | `Progression/XPRules.swift` | One integer formula: events summed, then streak, featured and practice percentages with one floor (D-072) |
