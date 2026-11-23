@@ -5,10 +5,10 @@ each turn's score bubble dares the next player to beat it. "Riff" is a code name
 
 ## Status
 
-Nothing is playable yet. Phase 1 has configuration, chart validation and a deterministic game
-session with tests; the Messages extension has a temporary device-diagnostics build. The device spike
-needs signed builds and real-device reports before the audio and gameplay phases can be validated.
-The current order is in [docs/plan/](docs/plan/README.md).
+Nothing is playable yet. Phase 1 has chart validation, a deterministic game session and computed
+results with tests; the Messages extension has a temporary device-diagnostics build. The device
+spike needs signed builds and real-device reports before the audio and gameplay phases can be
+validated. The current order is in [docs/plan/](docs/plan/README.md).
 
 ## Documentation
 

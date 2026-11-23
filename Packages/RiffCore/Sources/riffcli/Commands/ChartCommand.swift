@@ -28,10 +28,10 @@ extension Command {
         }
 
         if arguments[0] == "compute" {
-            chart.computed = ChartComputation.computed(for: chart, config: config)
+            chart.computed = try ChartComputation.computed(for: chart, config: config)
             try CanonicalJSON.encode(chart).write(to: url, options: .atomic)
         } else {
-            let stale = ChartComputation.staleFields(in: chart, config: config)
+            let stale = try ChartComputation.staleFields(in: chart, config: config)
             guard stale.isEmpty else {
                 let names = stale.joined(separator: ", ")
                 throw ChartFailure("\(path): stored \(names) out of date; run '\(RiffCLI.toolName) chart compute'")

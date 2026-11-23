@@ -1,16 +1,16 @@
 {
   "computed": {
-    "baseScore": 0,
+    "baseScore": 62887,
     "hash": "02ed3a3f",
-    "maxScore": 0,
+    "maxScore": 133200,
     "noteCount": 163,
     "rulesVersion": 3,
     "starCutoffs": [
-      0,
-      0,
-      0,
-      0,
-      0
+      6289,
+      15722,
+      28300,
+      40877,
+      53454
     ]
   },
   "difficulty": "medium",

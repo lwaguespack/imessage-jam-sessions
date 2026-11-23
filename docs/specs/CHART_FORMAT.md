@@ -89,9 +89,8 @@ if any stored value differs from a fresh computation.
 
 - `compute` rewrites the whole file as canonical JSON (section 1). A file that cannot be read or that
   breaks a rule is left as it was; both commands then print every issue and exit with status 1.
-- Until the scoring engine exists (task P1.6), `compute` writes `rulesVersion`, `noteCount` and `hash`
-  and carries `baseScore`, `maxScore` and `starCutoffs` over unchanged, and `check` compares only the
-  three it writes.
+- `compute` runs the perfect no-Hype bot for `baseScore`, computes the conservative `maxScore` and
+  upward-rounded star cutoffs, and writes all six fields. `check` compares all six.
 - Both commands read the chart alone, so the rules in section 4.2 that need the song's manifest are
   not checked by either (section 7).
 - `scripts/check.sh` runs `check` on the example chart in the tests' `Fixtures` folder. CI is to run

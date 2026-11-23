@@ -42,7 +42,7 @@ enum ExampleChart {
             }
         }
         let halfway = tick(bar: barCount / 2, slot: 0)
-        var chart = Chart(
+        return Chart(
             songId: "riff-example",
             part: .lead,
             difficulty: .medium,
@@ -56,7 +56,11 @@ enum ExampleChart {
             computed: ChartComputed(
                 rulesVersion: 0, noteCount: 0, baseScore: 0, maxScore: 0, starCutoffs: [0, 0, 0, 0, 0], hash: "")
         )
-        chart.computed = ChartComputation.computed(for: chart, config: .standard)
+    }
+
+    static func computed() throws -> Chart {
+        var chart = make()
+        chart.computed = try ChartComputation.computed(for: chart, config: .standard)
         return chart
     }
 

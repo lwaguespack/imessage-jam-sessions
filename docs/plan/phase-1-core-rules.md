@@ -82,10 +82,9 @@ Tests: one failing change per validation rule, each made to an example chart tha
 test target produces and that is committed as `Tests/RiffCoreTests/Fixtures/example-medium.json`; hash
 stability; the hash ignores `sections` and changes with any note.
 
-Left for later tasks:
+Follow-up:
 
-- `compute` writes `rulesVersion`, `noteCount` and `hash`, and carries the scores over until P1.6
-  computes them. Regenerate the fixture then (the command is in `CLAUDE.md`).
+- P1.6 added computed base score, ceiling and cutoffs, and regenerated the example fixture.
 - No command passes a manifest to the validator yet (CHART_FORMAT.md section 7).
 - `scripts/check.sh` runs `chart check` on the example chart; CI gets that step at the phase gate.
 
@@ -132,6 +131,9 @@ Tests: the partition-invariance property test using complete input watermarks; s
 ordering; late input at and before a committed watermark; pause sends releases; finality.
 
 ## P1.6 Results
+
+**Done.** Accuracy, Gold, upward-rounded star cutoffs and the conservative score ceiling use integer
+arithmetic. The example's perfect-run score is independently checked at 62,887 points.
 
 `Results/RunSummary.swift`, `Results/Accuracy.swift`, `Results/StarRating.swift`,
 `Results/PerfectRun.swift` (base score, ceiling, star cut-offs), wired into `riffcli chart compute`.
