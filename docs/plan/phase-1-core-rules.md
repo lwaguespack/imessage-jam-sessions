@@ -91,6 +91,10 @@ Left for later tasks:
 
 ## P1.3 Judge
 
+**Done.** `Judge` processes ordered touch and miss-deadline events without reading a clock. It
+rejects invalid lanes, incompatible compiled deadlines, backward events and unprocessed earlier
+misses instead of silently changing the result. The full input watermark is added in P1.5.
+
 `Engine/Judge.swift`: windows per difficulty, earliest-unjudged matching per lane, miss deadlines,
 ghost-tap classification and bounce grace (GAME_RULES section 3).
 
