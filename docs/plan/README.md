@@ -10,7 +10,7 @@ in what order, and how to tell it is done. The specs in [../specs/](../specs/) h
 | --- | --- | --- |
 | 0 Foundations | Below | Done except the owner's steps |
 | S Device spike | [phase-s-device-spike.md](phase-s-device-spike.md) | Diagnostic build implemented; needs signing, TestFlight and device reports |
-| 1 Core rules | [phase-1-core-rules.md](phase-1-core-rules.md) | P1.0 to P1.9 and architecture review done; phase gate in progress |
+| 1 Core rules | [phase-1-core-rules.md](phase-1-core-rules.md) | Done: gate and architecture review passed; device spike still gates later phases |
 | 2 Audio and clock | [phase-2-audio-clock.md](phase-2-audio-clock.md) | Outlined; starts after spike S1 |
 | 3 to 8 | [phases-3-to-8.md](phases-3-to-8.md) | Outlined at task level; detailed when reached |
 
@@ -56,7 +56,7 @@ The order the owner set for the current work:
    P1.3 to P1.6 are done.
 4. **Challenge MATCH_PROTOCOL.md**: the test-only merge model and conversation simulator exposed
    lost entries and inconsistent first-observed finality; draft 2 records the proposed corrections
-   (D-097 to D-099). P1.7 to P1.9 are done; the Phase 1 gate follows.
+   (D-097 to D-099). P1.7 to P1.9 and the Phase 1 gate are done.
 5. **Build and architecture review** (D-082): the Phase 1 follow-up is recorded in PLAN_REVIEW.md,
    with fixes D-118 and D-119. The content, UX and legal review waits for Phase 5 planning. The audio
    findings still have no skeptic pass.

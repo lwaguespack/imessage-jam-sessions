@@ -199,6 +199,9 @@ also exercise the implementation. This does not claim that the sample is a real-
 
 ## Done when
 
+**Passed.** Local checks and Linux/macOS CI are green. Directory coverage is 96.5% for Engine,
+94.7% for Match and 97.1% for Progression. The device spike still needs signed real-device reports.
+
 - `scripts/check.sh` passes locally and CI is green on Linux and macOS.
 - Line coverage is at least 90% on each of `Engine/`, `Match/` and `Progression/`, counted over the
   whole directory (`scripts/coverage-core.sh --min 90 Engine Match Progression`).

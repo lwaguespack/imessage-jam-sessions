@@ -5,8 +5,8 @@ each turn's score bubble dares the next player to beat it. "Riff" is a code name
 
 ## Status
 
-Nothing is playable yet. Phase 1 has chart validation, a deterministic game session, progression
-and match rules with tests; the Messages extension has a temporary device-diagnostics
+Nothing is playable yet. Phase 1's core gate passed with chart validation, a deterministic game
+session, progression, match rules and bot simulations; the Messages extension has a temporary device-diagnostics
 build. The device spike needs signed builds and real-device reports before the audio and gameplay
 phases can be validated. The current order is in [docs/plan/](docs/plan/README.md).
 
@@ -48,13 +48,14 @@ placeholder screen showing the core version and whether the view is compact or e
 ## Checks
 
 ```sh
-scripts/check.sh              # everything that runs without Xcode
+scripts/check.sh              # local checks, including the simulator build on macOS
 scripts/test-core.sh          # RiffCore tests only
 scripts/test-tools.sh         # Python tools: ruff and pytest
 scripts/test-spike.sh         # spike payload and measurement tests (macOS)
 scripts/test-payload-cli.sh   # payload inspect against the golden vectors
+scripts/test-simulate-cli.sh  # seeded simulator against the example-chart golden run
 scripts/lint.sh               # formatting
-scripts/coverage-core.sh      # RiffCore line coverage, file by file
+scripts/coverage-core.sh --min 90 Engine Match Progression  # Phase 1 coverage gate
 ```
 
 `scripts/swiftw` runs `swift` from a local toolchain, or in Docker (`swift:6.2-noble`) when there is none,
