@@ -71,7 +71,7 @@ mutating func advance(to time: Int64)           // commits events up to and incl
    diagnostic rather than changing the score.
 4. An input at or before the committed watermark is **late**: it is queued at the first uncommitted
    microsecond (`watermark + 1`) and increments `lateInputCount`. It cannot undo a prior judgement.
-   Inputs and advances outside the supported chart-time range are errors, not integer wraparound.
+   Inputs and advances outside ±8 hours of song time are errors, not integer wraparound.
 5. **Driver rule.** The app queues inputs as they arrive and, each frame, advances through
    `songTimeNow - inputGuard`. `inputGuard` starts at 50,000 µs. Judgement feedback waits for this
    watermark; the UI may give an immediate visual or haptic response to the raw touch, but that
@@ -217,12 +217,16 @@ minimum `16R`. (D-055)
 2. **Lead-in** is the smallest whole number of beats at the opening tempo that is at least
    `max(minLeadIn, scrollTime - firstNoteTime)` and includes at least `startCountdownBeats` beats.
    The count occupies those final countdown beats. Song time starts at minus the lead-in. (D-095)
-3. **Pause.** The driver sends `touchUp` for every active touch (holds end under H5) and stops calling
-   `advance`.
+3. **Pause.** At the pause timestamp, after same-time touch-downs, the engine generates a `touchUp`
+   for each still-active touch without an already-queued release at that time; holds end under H5.
+   It processes the rest of that timestamp and stops advancing. A pause before a queued future input
+   is an error: the driver must choose a pause time at or after all inputs it has already supplied.
 4. **Resume.** Audio pre-rolls from three beats before the pause point while the highway shows
    already-judged notes dimmed; the engine resumes at the pause point.
-5. A run is **final** when every note is judged and every hold has ended or been released. Leaving
-   after that point keeps the result. A run interrupted before then is discarded. (D-027, D-059)
+5. A run is **final** when every note is judged and every hold has ended or been released. No further
+   queued events are processed after finality. Leaving after that point keeps the result. A run
+   interrupted before then is discarded; its log cannot be replayed as a completed result. (D-027,
+   D-059, D-096)
 
 ## 9. Rules version
 

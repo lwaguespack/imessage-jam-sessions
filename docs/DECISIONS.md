@@ -495,3 +495,11 @@ minimum is only two beats, too short for a three-beat countdown. Base score is n
 can score 1,389 when the last head is 45 ms early versus a base of 1,387 at offset zero. The loose
 top-multiplier-plus-Hype ceiling remains: every note and each hold tick is bounded independently,
 including overlapping holds and early hits. A tighter ceiling is not used without a proof.
+
+### D-096 Pause releases and completed-run replay
+**Decided.** A pause can arrive while inputs are still waiting behind the watermark. The engine
+first processes same-time touch-downs, then synthesizes releases for the touches still active, then
+processes the remaining events at that timestamp. A pause before an already-queued future input is
+rejected rather than silently discarding that input. Run logs record effective and original input
+times, late status, synthetic releases and the final timestamp. An unfinished log cannot be turned
+into a completed score by replaying the remaining chart as Misses.

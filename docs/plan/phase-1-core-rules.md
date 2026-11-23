@@ -118,6 +118,10 @@ at exactly the expiry time.
 
 ## P1.5 Game session
 
+**Done.** Inputs and scheduled events share an inclusive watermark. Pause releases and effective
+late-input times are recorded in the run log, and only a final run can be replayed as a result
+(D-096). `SplitMix64` moved forward from P1.9 for the partition property test.
+
 | File | Contents |
 | --- | --- |
 | `Engine/InputEvent.swift`, `Engine/OutputEvent.swift` | The two event vocabularies (GAME_RULES section 2) |
