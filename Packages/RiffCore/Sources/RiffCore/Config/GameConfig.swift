@@ -8,7 +8,7 @@
 /// that a playtest could change.
 public struct GameConfig: Codable, Equatable, Sendable {
     /// Version of the scoring rules. Any change to a rule or value that can change a score bumps it (D-008).
-    public var rulesVersion = 2
+    public var rulesVersion = 3
 
     /// Lanes, on-screen geometry and note travel times (plan 4.1, 4.2).
     public var highway = Highway()

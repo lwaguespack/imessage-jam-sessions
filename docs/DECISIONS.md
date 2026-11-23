@@ -391,13 +391,13 @@ route settings and removes the two drift values.
 the SHA-256 of the ASCII text `riff-match-integrity-key-v1`, so its 32 bytes can be re-derived instead
 of trusted, and a test does that. A later wire version takes its own label.
 
-### D-085 The rules digest covers the judging, scoring, Hype and star values
+### D-085 The rules digest covers score-relevant config and the input guard
 **Decided.** The test that pins scoring values to `rulesVersion` (D-008) takes SHA-256 over the
-canonical JSON of `rulesVersion` and the `judging`, `scoring`, `hype` and `stars` groups of
+canonical JSON of `rulesVersion`, `playback.inputGuardMicros` and the `judging`, `scoring`, `hype` and `stars` groups of
 `GameConfig`: the values the engine reads to judge and score a run (GAME_RULES sections 3 to 7).
-Chart limits, payload limits, XP and playback settings are outside it, so tuning them does not force
-a rules bump. `playback.inputGuardMicros` is outside because it only sets when the driver calls
-`advance`, which must not change a result (GAME_RULES section 2, rule 5). To keep `hype` to scoring
+Chart limits, payload limits, XP and the other playback settings are outside it, so tuning them does
+not force a rules bump. D-092 adds `playback.inputGuardMicros`: changing it can change whether an
+input arrives after the committed watermark and is clamped. To keep `hype` to scoring
 values, the phrase-count limits (4 to 6 per chart) moved from `hype` to `charts`. A rule change that
 is not a config value is invisible to the digest and still needs the bump.
 
@@ -461,3 +461,37 @@ Release for TestFlight. The temporary diagnostics are available in both configur
 their report locally as events happen, so a process termination does not discard the earlier
 measurements. Test messages contain synthetic data only. Device observations remain unconfirmed until
 the owner runs the protocols.
+
+### D-092 Inputs are finalized behind a watermark
+**Decided.** The draft processed `advance(to: t)` inclusively but also allowed a touch at `t` to
+arrive afterward. At a note's Good deadline, advancing first produced a Miss; applying the touch
+first produced a hit. It also specified lane ordering without saying how to order same-lane touches.
+Inputs are now queued, and a watermark processes them with scheduled events in a deterministic
+order. Inputs at or before an already committed watermark are explicitly late and move to its next
+microsecond; they cannot retract emitted events. The default 50 ms guard delays final judgement
+feedback, while visual/haptic feedback may still react immediately. Because the guard affects which
+inputs are late, it joins the pinned rules digest. The owner was unavailable when asked about this
+tradeoff; the deterministic option is used until overruled.
+
+### D-093 Ghost penalties and Full Combo are explicit
+**Decided.** A penalised ghost before the first hit resets a zero streak, so the subsequent longest
+streak can still equal the note count; the draft nevertheless said such a run could not be a Full
+Combo. Full Combo now requires every note hit and no penalised ghost. `dropTier` was undefined; it
+drops the displayed multiplier by one tier and clears that tier's progress, even after the streak
+has climbed past the multiplier cap. Ignored bounces are not counted as ghost taps.
+
+### D-094 Hold and Hype boundaries are unambiguous
+**Decided.** A head hit early and released before its tick has an empty sustain interval, not a
+negative one. Releasing at the exact end completes the hold once. A phrase completes only after all
+its members hit: hitting its chronologically last note first must not award meter before an earlier
+member can Miss. A phrase completed exactly at Hype expiry extends the current activation before the
+old expiry event runs. Drain uses the configured positive `drainPerBeat`.
+
+### D-095 Cutoffs, countdowns and the score ceiling
+**Decided.** Stored star cutoffs round up: with base 101 and an 85% threshold, 86 is the first
+qualifying integer, not 85. The lead-in includes the configured countdown: at 40 BPM a 2-second
+minimum is only two beats, too short for a three-beat countdown. Base score is not a ceiling: at
+120 BPM, resolution 192 and Expert's 10-note step, a 1,920-tick hold plus nine other Perfect heads
+can score 1,389 when the last head is 45 ms early versus a base of 1,387 at offset zero. The loose
+top-multiplier-plus-Hype ceiling remains: every note and each hold tick is bounded independently,
+including overlapping holds and early hits. A tighter ceiling is not used without a proof.

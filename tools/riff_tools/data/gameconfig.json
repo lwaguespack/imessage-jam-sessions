@@ -197,7 +197,7 @@
     "resumeCountdownBeats": 3,
     "startCountdownBeats": 3
   },
-  "rulesVersion": 2,
+  "rulesVersion": 3,
   "scoring": {
     "maxStreakMultiplier": 4,
     "streakPerMultiplierStep": {

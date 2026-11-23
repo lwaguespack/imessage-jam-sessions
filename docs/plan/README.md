@@ -52,7 +52,8 @@ The order the owner set for the current work:
 1. **Phase 1, tasks P1.0 to P1.2**: done. The owner reviews them before the next item starts.
 2. **Spike build** for Phase S: implemented; the owner runs the device protocols after signing and
    TestFlight setup.
-3. **Challenge GAME_RULES.md**, whose findings had no skeptic pass, then tasks P1.3 to P1.6.
+3. **Challenge GAME_RULES.md**, whose findings had no skeptic pass: done (draft 2, D-092 to D-095).
+   Next are tasks P1.3 to P1.6.
 4. **Challenge MATCH_PROTOCOL.md**, with the merge property tests and the conversation simulator
    written first, then tasks P1.7 to P1.9 and the Phase 1 gate. Until each challenge is done, its
    spec stays marked draft 1.

@@ -59,7 +59,7 @@ struct GameConfigJSONTests {
     @Test("Times, percentages, fractions and choices appear as the integers and names the specs' tables imply")
     func valuesAppearAsWritten() throws {
         let text = try canonicalText(.standard)
-        #expect(text.contains("\"rulesVersion\": 2"))
+        #expect(text.contains("\"rulesVersion\": 3"))
         #expect(text.contains("\"windowMicros\": 45000"))
         #expect(text.contains("\"minSameLaneGapMicros\": 180000"))
         #expect(text.contains("\"maxAverageMilliNotesPerSecond\": 3500"))

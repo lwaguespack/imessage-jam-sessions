@@ -3,8 +3,9 @@
 The exact rules the engine in `RiffCore` implements: time, judging, streaks, holds, Hype, scoring and
 results. Two engineers working from this document must produce identical scores for identical input.
 
-**Status: draft 1.** Built from PLAN.md section 4 and the gameplay review (GAME-1 to GAME-17,
-AUD-8). The gameplay findings have not had a skeptic pass; section 13 lists what is still open.
+**Status: draft 2.** Built from PLAN.md section 4 and the gameplay review (GAME-1 to GAME-17,
+AUD-8), then independently checked before the engine implementation. Decisions D-092 to D-095 record
+the counterexamples and resolutions; section 13 lists what is still open.
 Decisions are referenced as `D-0xx` (see [../DECISIONS.md](../DECISIONS.md)).
 
 ## 1. Units
@@ -53,28 +54,35 @@ enum InputEvent {
     case touchUp(id: Int, time: Int64)        // also sent for a cancelled touch
     case activateHype(time: Int64)
 }
-mutating func apply(_ event: InputEvent)
-mutating func advance(to time: Int64)          // processes every scheduled event up to and including time
+mutating func apply(_ event: InputEvent)        // validates and queues the input
+mutating func advance(to time: Int64)           // commits events up to and including time
 ```
 
-1. Internally the engine keeps scheduled events: a **miss deadline** per note, a **hold end** per
-   live hold, and **Hype expiry**.
-2. Everything is processed in one total order: by time, then by class in this order: `activateHype`,
-   `touchDown`, `touchUp`, `holdEnd`, `missDeadline`, `hypeExpiry`; then by lane, lowest first.
-   Consequences: a touch exactly on a window edge is a hit, and a touch exactly at Hype expiry is
-   doubled.
-3. Engine time never moves backwards. An input older than the engine's current time is clamped to the
-   current time and counted (`lateInputCount`, shown in Diagnostics).
-4. **Driver rule.** The app applies inputs as they arrive and, each frame, calls
-   `advance(to: songTimeNow - inputGuard)`. `inputGuard` starts at 50,000 µs. A touch is always
-   delivered after its timestamp, so without the guard a valid late hit could be swept as a miss
-   first. Miss feedback therefore appears `inputGuard` after the window closes; hit feedback is
-   immediate. (GAME-2, AUD-8)
-5. **Partition invariance.** Replaying one input log with any subdivision of `advance` calls must
-   give an identical result and event list. This is a required property test.
-6. The engine emits output events (hit with judgement and offset, miss, ghost tap, streak change,
+1. The engine queues inputs and scheduled events: a **miss deadline** per note, a **hold end** per
+   live hold, and **Hype expiry**. `apply` does not advance time or finalize a judgement.
+2. `advance(to: t)` processes queued events through `t` inclusively and commits `t` as a watermark:
+   no later input can change what has already been emitted. The initial watermark is just before the
+   run's start time. Advances cannot move backwards.
+3. Events are ordered by time, then by class: `activateHype`, `touchDown`, `touchUp`, `holdEnd`,
+   `missDeadline`, `hypeExpiry`. Tied `touchDown` events are ordered by lane then touch id; tied
+   `touchUp` events by touch id; tied note events by lane then chart index. Consequently a touch at
+   a window edge is a hit, a touch exactly at Hype expiry is doubled, and chord order is independent
+   of input arrival order. Reusing an active touch id or releasing an unknown id is rejected with a
+   diagnostic rather than changing the score.
+4. An input at or before the committed watermark is **late**: it is queued at the first uncommitted
+   microsecond (`watermark + 1`) and increments `lateInputCount`. It cannot undo a prior judgement.
+   Inputs and advances outside the supported chart-time range are errors, not integer wraparound.
+5. **Driver rule.** The app queues inputs as they arrive and, each frame, advances through
+   `songTimeNow - inputGuard`. `inputGuard` starts at 50,000 µs. Judgement feedback waits for this
+   watermark; the UI may give an immediate visual or haptic response to the raw touch, but that
+   response cannot affect the score. A touch delivered after the guard is late under rule 4.
+6. **Partition invariance.** For a replay, enqueue all inputs at or before each watermark before
+   advancing to it. Any nondecreasing subdivision of such advances gives the same result and output
+   events. A subdivision that commits before an input arrives makes that input late and is not
+   equivalent to one that did not. This is a required property test. (D-092)
+7. The engine emits output events (hit with judgement and offset, miss, ghost tap, streak change,
    multiplier change, Hype charged, activated and expired, hold started, released and completed, run
-   finished) for the HUD, effects and audio. Output never feeds back into scoring.
+   finished, and rejected input) for the HUD, effects and audio. Output never feeds back into scoring.
 
 ## 3. Judging
 
@@ -99,24 +107,32 @@ mutating func advance(to time: Int64)          // processes every scheduled even
 
 A `touchDown` that matches no note is a **ghost tap**. (D-052, owner decision)
 
-1. It is ignored if it lands within `bounceGrace` (80,000 µs) after a hit in the same lane, or
-   before the first note's window opens, or after the last note has been judged.
+1. It is ignored, not counted or emitted, if its time is from the last hit in the same lane through
+   that hit plus `bounceGrace` (80,000 µs), inclusive; if it is before the first chart note's Good
+   window opens; or if every note head has already been judged.
 2. Otherwise the difficulty's `ghostTapPenalty` applies: `resetStreak` (the default on every
-   difficulty), `dropTier`, or `none`.
-3. A ghost tap is never a Miss: it does not affect accuracy or Hype phrases.
+   difficulty), `dropTier`, or `none`. `dropTier` sets `s` to
+   `max(0, (m - 2) * streakPerMultiplierStep[d])`, where `m` is the current streak multiplier before
+   Hype. This drops one displayed tier and clears progress within it, including when `s` was beyond
+   the maximum multiplier.
+3. A non-ignored ghost tap increments `ghostTapCount` even under `none`. It is never a Miss and
+   does not affect accuracy or Hype phrases. Either non-`none` penalty disqualifies Full Combo,
+   even when the scoring streak was already zero. (D-093)
 
 ## 4. Streak and multiplier
 
-1. The **streak** `s` counts consecutive notes hit. A Miss sets it to 0. A penalised ghost tap sets
-   it to 0 under `resetStreak`.
+1. The **streak** `s` is the scoring counter. A hit increments it; a Miss sets it to 0; a ghost tap
+   modifies it as specified in section 3.1. `longestStreak` is the largest value the counter reached.
 2. A note scores with the streak **before** it is counted:
    `m = min(maxStreakMultiplier, 1 + floor(s / streakPerMultiplierStep[d]))`, then `s += 1`.
 3. `streakPerMultiplierStep` is per difficulty: 4, 6, 8, 10 for Easy to Expert, so the climb to the
    top multiplier lasts a similar number of seconds at every difficulty. `maxStreakMultiplier` is 4.
    (D-053)
-4. While Hype is active the multiplier is doubled: `h = 2`, otherwise `h = 1`.
+4. While Hype is active the multiplier is multiplied by `hype.multiplier` (initially 2); otherwise
+   `h = 1`.
 5. A hit note scores `points(judgement) * m * h`.
-6. **Full Combo** means `longestStreak == noteCount`. A run with a penalised ghost tap cannot be one.
+6. **Full Combo** means every note was hit and there was no penalised ghost tap. It is not inferred
+   from `longestStreak`: a penalised ghost before the first hit can leave `longestStreak == noteCount`.
 
 ## 5. Holds
 
@@ -125,7 +141,8 @@ A hold is a note with an `endTick`. (D-056)
 - **H1.** A hold is one note (its head) for streak, accuracy, note count and Hype phrases.
 - **H2.** The touch that hits the head owns the hold.
 - **H3.** Sustain accrues over ticks `[max(headTick, tick(touchTime)), min(endTick, tick(releaseTime)))`
-  at the live multiplier `m * h`.
+  at the live multiplier `m * h`. If the end is at or before the start, the interval is empty: an
+  early hit released before the head scores the head but no sustain.
 - **H4.** A missed head kills the whole hold. Later touches in that lane are ordinary touches.
 - **H5.** Lifting the owning touch, or a cancelled touch, ends the sustain for good: no re-press, no
   Miss, no effect on streak, phrases or Full Combo.
@@ -134,13 +151,16 @@ A hold is a note with an `endTick`. (D-056)
   starts at least the same-lane minimum gap after the hold's end; a hold is at least the larger of
   the difficulty's beat fraction and 250,000 µs.
 - **H8.** The tail of a dead or released hold is drawn dimmed.
+- **H9.** Releasing at or after `time(endTick)` completes the hold, even though `touchUp` precedes
+  `holdEnd` in the same-time order. The scheduled end then does nothing; completion is emitted once.
 
 ### 5.1 Sustain arithmetic
 
 The engine keeps one integer accumulator `U` for the whole run. While a hold is live it adds
 `(m * h) * deltaTicks`, splitting the interval at every event that changes `m` or `h`. Sustain points
 are `floor(sustainPointsPerBeat * U / resolution)` with `sustainPointsPerBeat = 25`: **one floor for
-the whole run**, applied when the score is read. (D-051, GAME-3)
+the whole run**, applied when the score is read. At an event, accrual through `tick(eventTime)` uses
+the old multiplier; the interval starting at that tick uses the new multiplier. (D-051, GAME-3)
 
 ## 6. Hype
 
@@ -149,15 +169,18 @@ minimum `16R`. (D-055)
 
 - **R1.** A phrase is the half-open tick range `[start, end)`. Its members are the notes whose head
   tick is inside. A hold belongs by its head only.
-- **R2.** A phrase fails at its first member Miss. It completes the moment its last member is hit.
-  Sustains do not matter.
+- **R2.** A phrase fails at its first member Miss. It completes only when **all** its member heads
+  have been hit, at the time of the last such hit. Hitting the chart's last member while an earlier
+  member is still unjudged is not completion. Sustains do not matter.
 - **R3.** Completion adds `8R` to the meter, clamped at `32R`; overflow is discarded. This also
   applies while Hype is active, which extends it.
 - **R4.** `activateHype` is accepted only when Hype is inactive and the meter is at least `16R`. It
   takes effect at the event's timestamp. Otherwise it is ignored at no cost. Hype cannot be cancelled.
-- **R5.** While active the meter drains one unit per tick, so `expiryTick = activationTick + meter`,
-  recomputed when R3 adds meter. A note is doubled if `activationTime <= touchTime <= time(expiryTick)`.
-  Sustain is doubled tick by tick over `[activationTick, expiryTick)`.
+- **R5.** While active the meter drains `hype.drainPerBeat` units per chart tick (initially one).
+  `expiryTick = activationTick + ceil(meter / drainPerBeat)`, recomputed from the remaining meter
+  when R3 adds meter. A note is doubled if `activationTime <= touchTime <= time(expiryTick)`.
+  Sustain is doubled tick by tick over `[activationTick, expiryTick)`. If a phrase completes exactly
+  at expiry and adds meter, it extends Hype and the old expiry event is discarded. (D-094)
 - **R6.** A Miss does not affect the meter or an active Hype. A pause freezes it. Unused meter at the
   end of the song is lost.
 - **R7.** Chart rules: phrases sorted and non-overlapping; at least 4 member notes; both notes of a
@@ -176,12 +199,14 @@ minimum `16R`. (D-055)
    the engine's perfect-run bot to equal it exactly.
 4. **Score ceiling** (`maxScore`), used to reject impossible scores: every note Perfect at the top
    multiplier with Hype, plus every hold tick doubled:
-   `100 * maxStreakMultiplier * 2 * noteCount + floor(25 * maxStreakMultiplier * 2 * totalHoldTicks / resolution)`.
-   A tighter bound is an open question (section 13).
+   `perfectPoints * maxStreakMultiplier * hypeMultiplier * noteCount + floor(sustainPointsPerBeat * maxStreakMultiplier * hypeMultiplier * totalHoldTicks / resolution)`.
+   This is a safe upper bound, not a reachable score or a multiple of base score. A perfect run at
+   early offsets can score above base even without Hype. A tighter bound remains open (section 13).
 5. **Stars.** Each chart stores five absolute cut-off scores, computed by `riffcli` as shares of base
    score from `GameConfig.stars.sharesPercent[d]` (starting at 10, 25, 45, 65, 85 for every
-   difficulty). Stars are the number of cut-offs the score reaches, compared in integers:
-   `score * 100 >= baseScore * share`. Hype can push a score above 100% of base. (D-053)
+   difficulty). Each stored cutoff is `ceil(baseScore * share / 100)`. Stars are the number of
+   cutoffs reached, equivalently `score * 100 >= baseScore * share`. Hype can push a score above
+   100% of base. (D-053, D-095)
 6. **Gold** is 5 stars plus a Full Combo.
 7. `RunSummary` holds: score, accuracy, counts per judgement, longest streak, note count, Full Combo,
    stars, Hype activations, ghost-tap count, late-input count, chart hash, rules version, difficulty.
@@ -190,8 +215,8 @@ minimum `16R`. (D-055)
 
 1. **Scroll time** is the approach time from spawn to the strike line (not time on screen).
 2. **Lead-in** is the smallest whole number of beats at the opening tempo that is at least
-   `max(minLeadIn, scrollTime - firstNoteTime)`, with the count on its last three beats. Song time
-   starts at minus the lead-in.
+   `max(minLeadIn, scrollTime - firstNoteTime)` and includes at least `startCountdownBeats` beats.
+   The count occupies those final countdown beats. Song time starts at minus the lead-in. (D-095)
 3. **Pause.** The driver sends `touchUp` for every active touch (holds end under H5) and stops calling
    `advance`.
 4. **Resume.** Audio pre-rolls from three beats before the pause point while the highway shows
@@ -205,14 +230,16 @@ minimum `16R`. (D-055)
 change a score bumps it. It is part of the chart hash and of the match payload, and a test pins a
 digest of the scoring values to the current version so a silent change fails. (D-008)
 
-The digest is SHA-256 over the canonical JSON of `rulesVersion` and the `judging`, `scoring`, `hype`
-and `stars` groups of `GameConfig`. It cannot see a rule that is not a config value: changing such a
-rule still needs the bump. (D-085)
+The digest is SHA-256 over the canonical JSON of `rulesVersion`, `playback.inputGuardMicros`, and
+the `judging`, `scoring`, `hype` and `stars` groups of `GameConfig`. The guard can change whether a
+late input is clamped, so it is included. The digest cannot see a rule that is not a config value:
+changing such a rule still needs the bump. (D-085, D-092)
 
 | Version | What changed |
 | --- | --- |
 | 1 | The rules as first written, with the values applied in task P1.0. |
 | 2 | Tick-to-time conversion rounds up (section 1.1, D-086). |
+| 3 | Deterministic input watermarks, ghost penalties, phrase completion and hold boundaries (D-092 to D-095). |
 
 ## 10. Bots and the simulator
 
@@ -237,8 +264,13 @@ casual bot's median.
   the next tap inside its Perfect window.
 - Streak: the first `step` notes score at 1x, the next `step` at 2x; chord notes in lane order.
 - Ghost taps: bounce grace, before the first note, each penalty setting, never a Miss.
+- A penalised ghost before the first hit disqualifies Full Combo; `dropTier` drops a capped multiplier.
 - Holds: H1 to H6, early and late head, release mid-hold, multiplier change mid-hold, one floor.
-- Hype: R1 to R6, activation at exactly the threshold, extension while active, touch at expiry.
+- Holds released before the head accrue zero sustain; a release exactly at the end completes once.
+- Hype: R1 to R6, an earlier unjudged phrase member, activation at exactly the threshold, extension
+  at expiry, and touch at expiry.
+- A note's early Perfect can increase another lane's hold score above base; the loose ceiling still holds.
+- Stored star cutoffs round up and the lead-in contains the full countdown even at slow tempos.
 - Golden runs: scripted input logs with expected `RunSummary` values, stored as JSON fixtures.
 - Partition invariance (section 2, rule 5) with random subdivisions from the seeded generator.
 - Perfect-run bot equals the stored base score for every bundled chart.

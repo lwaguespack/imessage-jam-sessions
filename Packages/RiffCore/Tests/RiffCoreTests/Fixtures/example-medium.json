@@ -1,10 +1,10 @@
 {
   "computed": {
     "baseScore": 0,
-    "hash": "e0d0bb1c",
+    "hash": "02ed3a3f",
     "maxScore": 0,
     "noteCount": 163,
-    "rulesVersion": 2,
+    "rulesVersion": 3,
     "starCutoffs": [
       0,
       0,

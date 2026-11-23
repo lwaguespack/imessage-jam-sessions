@@ -6,6 +6,8 @@ macOS in CI.
 
 Specs: [GAME_RULES.md](../specs/GAME_RULES.md), [MATCH_PROTOCOL.md](../specs/MATCH_PROTOCOL.md),
 [CHART_FORMAT.md](../specs/CHART_FORMAT.md). Where a task and a spec disagree, fix the spec first.
+The game rules were independently challenged before P1.3; draft 2 and decisions D-092 to D-095
+record the corrected boundaries and the version-3 rules digest.
 
 ## Order of work
 
@@ -103,8 +105,9 @@ chords judged independently; every ghost-tap exemption.
 | `Engine/HoldTracker.swift` | Rules H1 to H6: ownership, live interval in ticks, release |
 | `Engine/HypeMeter.swift` | Rules R1 to R6 in integer ticks |
 
-Tests: one per rule; multiplier change in the middle of a hold; the single floor; extension while
-active; a touch at exactly the expiry time.
+Tests: one per rule; an early release before the head and a release at the hold end; multiplier
+change in the middle of a hold; the single floor; all phrase members must hit; extension and a touch
+at exactly the expiry time.
 
 ## P1.5 Game session
 
@@ -114,15 +117,17 @@ active; a touch at exactly the expiry time.
 | `Engine/GameSession.swift` | `apply`, `advance(to:)`, the scheduled-event queue and its total order; states ready, lead-in, playing, paused, finished |
 | `Engine/RunLog.swift` | The replayable input log: events plus chart hash, rules version, difficulty |
 
-Tests: the partition-invariance property test; late input clamping; pause sends releases; finality.
+Tests: the partition-invariance property test using complete input watermarks; same-time input
+ordering; late input at and before a committed watermark; pause sends releases; finality.
 
 ## P1.6 Results
 
 `Results/RunSummary.swift`, `Results/Accuracy.swift`, `Results/StarRating.swift`,
 `Results/PerfectRun.swift` (base score, ceiling, star cut-offs), wired into `riffcli chart compute`.
 
-Tests: accuracy rounding; star boundaries in integers; Gold; the perfect-run bot equals the stored
-base score of the example chart.
+Tests: accuracy rounding; upward-rounded star boundaries; Gold and penalised ghosts before the first
+hit; early Perfects can exceed base without Hype but not the ceiling; the perfect-run bot equals the
+stored base score of the example chart.
 
 ## P1.7 Progression
 

@@ -7,6 +7,7 @@ struct RulesVersionTests {
     /// The values that can change a score or a star count, in the form the digest is taken over.
     private struct ScoringRules: Encodable {
         var rulesVersion: Int
+        var inputGuardMicros: Int64
         var judging: GameConfig.Judging
         var scoring: GameConfig.Scoring
         var hype: GameConfig.Hype
@@ -14,6 +15,7 @@ struct RulesVersionTests {
 
         init(_ config: GameConfig) {
             rulesVersion = config.rulesVersion
+            inputGuardMicros = config.playback.inputGuardMicros
             judging = config.judging
             scoring = config.scoring
             hype = config.hype
@@ -21,8 +23,8 @@ struct RulesVersionTests {
         }
     }
 
-    private static let pinnedVersion = 2
-    private static let pinnedDigest = "62b27e232f2e4a00644934b2c2bf235b5db3f2d2b01e95dde24401203c557b50"
+    private static let pinnedVersion = 3
+    private static let pinnedDigest = "df5600ddbcee27e07fa5633e6278d388e3dc73085479bcecff4eec719a839c57"
 
     /// SHA-256, in hex, of the canonical JSON of the scoring values.
     private func digest(of config: GameConfig) throws -> String {
@@ -42,6 +44,7 @@ struct RulesVersionTests {
     func digestCoversScoringValues() throws {
         let edits: [(inout GameConfig) -> Void] = [
             { $0.rulesVersion += 1 },
+            { $0.playback.inputGuardMicros += 1 },
             { $0.judging.great.windowMicros += 1 },
             { $0.judging.windowScalePercent.easy += 1 },
             { $0.judging.ghostTapPenalty.easy = .none },
@@ -59,11 +62,11 @@ struct RulesVersionTests {
         }
     }
 
-    @Test("Values outside the judging, scoring, Hype and star groups do not move the digest")
+    @Test("Values outside the scoring groups and input guard do not move the digest")
     func digestLeavesOutOtherGroups() throws {
         var config = GameConfig.standard
         config.highway.scrollTimeMicros.easy += 1
-        config.playback.inputGuardMicros += 1
+        config.playback.missDuckMinMicros += 1
         config.payload.maxEntries += 1
         config.match.maxTries -= 1
         config.xp.finishRun += 1
