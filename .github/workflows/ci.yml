@@ -71,6 +71,8 @@ jobs:
         run: brew install xcodegen
       - name: Generate the project
         run: xcodegen generate
+      - name: App and extension bundle identifiers
+        run: scripts/test-bundle-ids.sh
       - name: Spike diagnostic tests
         run: scripts/test-spike.sh
       - name: Build for the simulator (unsigned)

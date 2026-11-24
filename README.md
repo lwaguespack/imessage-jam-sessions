@@ -37,6 +37,10 @@ scripts/build-ios-simulator.sh # generate the project and build the unsigned sim
 open Riff.xcodeproj
 ```
 
+The app bundle ID defaults to `<prefix>.Riff`. If you already registered a different full app ID,
+set `RIFF_APP_BUNDLE_IDENTIFIER` in `Config/Local.xcconfig` instead; the extension ID is derived
+from it by appending `.MessagesExtension`.
+
 Run the `Riff` scheme on a simulator or your iPhone (if Xcode asks which app to run, pick Messages).
 In Messages, open a conversation, tap **+**, then **More**, and choose Riff. You should see a
 placeholder screen showing the core version and whether the view is compact or expanded. The
@@ -52,6 +56,7 @@ scripts/check.sh              # local checks, including the simulator build on m
 scripts/test-core.sh          # RiffCore tests only
 scripts/test-tools.sh         # Python tools: ruff and pytest
 scripts/test-spike.sh         # spike payload and measurement tests (macOS)
+scripts/test-bundle-ids.sh    # verify generated app and extension IDs (macOS)
 scripts/test-payload-cli.sh   # payload inspect against the golden vectors
 scripts/test-simulate-cli.sh  # seeded simulator against the example-chart golden run
 scripts/lint.sh               # formatting

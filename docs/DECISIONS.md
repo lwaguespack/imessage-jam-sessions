@@ -617,3 +617,8 @@ Phase 4 must first persist joined fragments, the first-final descriptor, profile
 before showing final results or an award; Phase 6 extends that store. This preserves the local
 no-reopen and at-most-once rules across crashes. There is no global exactly-once payout guarantee:
 first-observed standings can differ, and future profile sync must also reconcile settlement records.
+
+### D-120 Allow an existing full app bundle identifier
+**Decided.** A registered app ID need not end in `.Riff`. `RIFF_APP_BUNDLE_IDENTIFIER` defaults
+to `<prefix>.Riff` but can be overridden locally; the extension derives its identifier from the
+same full app ID. This preserves existing defaults and keeps both signing identifiers consistent.

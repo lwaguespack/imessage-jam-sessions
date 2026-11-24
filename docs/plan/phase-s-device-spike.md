@@ -38,7 +38,8 @@ The spike code is deleted when Phase 3 starts. Nothing in it is reused without r
 ### Owner checklist
 
 1. Put your bundle prefix and Team ID in the ignored `Config/Local.xcconfig`, then run
-   `scripts/bootstrap.sh`. Do not commit the local settings.
+   `scripts/bootstrap.sh`. If your registered app ID differs from `<prefix>.Riff`, set
+   `RIFF_APP_BUNDLE_IDENTIFIER` to the full ID in that file. Do not commit the local settings.
 2. In Xcode, select the `Riff` scheme and an iOS device destination. Archive the Release build,
    upload it to your App Store Connect record, and install it through TestFlight. The unsigned
    simulator and archive checks do not replace signing or this step.

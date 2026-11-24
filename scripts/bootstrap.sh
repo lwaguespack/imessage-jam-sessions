@@ -38,7 +38,8 @@ xcodegen generate
 cat <<'NEXT'
 
 Next steps
-  1. Edit Config/Local.xcconfig (your bundle prefix and Team ID), then run scripts/bootstrap.sh again.
+  1. Edit Config/Local.xcconfig (your bundle prefix, Team ID and optional full app ID).
+     Then run scripts/bootstrap.sh again.
   2. open Riff.xcodeproj
   3. Choose the Riff scheme and an iPhone simulator or your iPhone, then Run.
      If Xcode asks which app to run, pick Messages.

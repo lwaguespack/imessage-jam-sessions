@@ -31,6 +31,7 @@ step "Icon set is complete" python3 scripts/make-placeholder-icons.py --check
 if [[ "$(uname -s)" == Darwin ]]; then
     step "Spike diagnostic tests" scripts/test-spike.sh
     step "iOS Simulator build" scripts/build-ios-simulator.sh
+    step "App and extension bundle IDs" scripts/test-bundle-ids.sh
 else
     echo "SKIP  iOS Simulator build (requires macOS and Xcode; CI builds it on macOS)"
 fi

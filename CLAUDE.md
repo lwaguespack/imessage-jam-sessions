@@ -19,6 +19,7 @@ duels, group rounds and an XP meta, no server. Every game rule lives in the pure
 | `scripts/test-core.sh [--filter Name]` | While working on `RiffCore`. |
 | `scripts/test-tools.sh` | While working on `tools/`. |
 | `scripts/test-spike.sh` | On macOS: run the device spike's synthetic-payload and measurement tests. |
+| `scripts/test-bundle-ids.sh` | On macOS: verify the generated app and extension bundle identifiers. |
 | `scripts/test-payload-cli.sh` | Check `riffcli payload inspect` against both wire-version fixtures. |
 | `scripts/test-simulate-cli.sh` | Check the seeded simulator against its example-chart golden run. |
 | `scripts/swiftw format --in-place --recursive Packages RiffMessages Tests` | Before committing Swift. |
