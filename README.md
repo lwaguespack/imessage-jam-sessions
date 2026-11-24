@@ -1,14 +1,14 @@
-# Riff
+# iMessageRiff
 
 A rhythm game that lives inside iMessage: friends take turns playing a short 4-lane note highway, and
-each turn's score bubble dares the next player to beat it. "Riff" is a code name.
+each turn's score bubble dares the next player to beat it.
 
 ## Status
 
-Scaffold only. Nothing is playable yet. The plan has been reviewed and amended, the repository builds
-an empty Messages extension, and the core rules package has its configuration, tooling and tests in
-place. Work proceeds in the phases described in [docs/PLAN.md](docs/PLAN.md), starting with the device
-spike (Phase S) and the core rules (Phase 1).
+Nothing is playable yet. Phase 1's core gate passed with chart validation, a deterministic game
+session, progression, match rules and bot simulations; the Messages extension has a temporary device-diagnostics
+build. The device spike needs signed builds and real-device reports before the audio and gameplay
+phases can be validated. The current order is in [docs/plan/](docs/plan/README.md).
 
 ## Documentation
 
@@ -31,40 +31,54 @@ Where these disagree, DECISIONS.md and the specs win over PLAN.md.
 ## Quick start on a Mac
 
 ```sh
-scripts/bootstrap.sh          # installs XcodeGen if needed, creates Config/Local.xcconfig, generates Riff.xcodeproj
+scripts/bootstrap.sh          # installs XcodeGen if needed, creates Config/Local.xcconfig, generates iMessageRiff.xcodeproj
 # edit Config/Local.xcconfig: set RIFF_BUNDLE_PREFIX and DEVELOPMENT_TEAM, then run bootstrap again
-open Riff.xcodeproj
+scripts/build-ios-simulator.sh # generate the project and build the unsigned simulator app
+open iMessageRiff.xcodeproj
 ```
 
-Run the `Riff` scheme on a simulator or your iPhone (if Xcode asks which app to run, pick Messages).
-In Messages, open a conversation, tap **+**, then **More**, and choose Riff. You should see a
-placeholder screen showing the core version and whether the view is compact or expanded.
+The app bundle ID defaults to `<prefix>.iMessageRiff`. If you already registered a different full app ID,
+set `RIFF_APP_BUNDLE_IDENTIFIER` in `Config/Local.xcconfig` instead; the extension ID is derived
+from it by appending `.MessagesExtension`.
 
-`Riff.xcodeproj` is generated from `project.yml` and is never committed.
+Run the `iMessageRiff` scheme on a simulator or your iPhone (if Xcode asks which app to run, pick Messages).
+In Messages, open a conversation, tap **+**, then **More**, and choose iMessageRiff. You should see a
+placeholder screen showing the core version and whether the view is compact or expanded. The
+**Device spike** entry opens the temporary diagnostics described in
+[phase-s-device-spike.md](docs/plan/phase-s-device-spike.md).
+
+`iMessageRiff.xcodeproj` is generated from `project.yml` and is never committed.
 
 ## Checks
 
 ```sh
-scripts/check.sh              # everything that runs without Xcode
-scripts/test-core.sh          # RiffCore tests only
+scripts/check.sh              # local checks, including the simulator build on macOS
+scripts/test-core.sh          # iMessageRiffCore tests only
 scripts/test-tools.sh         # Python tools: ruff and pytest
+scripts/test-spike.sh         # spike payload and measurement tests (macOS)
+scripts/test-bundle-ids.sh --built  # verify app and extension names and IDs after a simulator build
+scripts/test-payload-cli.sh   # payload inspect against the golden vectors
+scripts/test-simulate-cli.sh  # seeded simulator against the example-chart golden run
 scripts/lint.sh               # formatting
+scripts/coverage-core.sh --min 90 Engine Match Progression  # Phase 1 coverage gate
 ```
 
 `scripts/swiftw` runs `swift` from a local toolchain, or in Docker (`swift:6.2-noble`) when there is none,
 so the core package builds and tests on Linux as well as macOS.
 
-CI (GitHub Actions) runs on every push: RiffCore on Linux, the Python tools, and on a macOS runner
-`xcodegen generate` plus an unsigned iOS Simulator build and the RiffCore tests.
+CI (GitHub Actions) runs on pushes to `main` and `claude/**`, on pull requests, and when manually
+dispatched. It checks iMessageRiffCore on Linux, the Python tools, and on a macOS runner generates the Xcode
+project, builds the unsigned iOS Simulator app, and tests iMessageRiffCore. `scripts/check.sh` also runs the
+simulator build automatically on macOS.
 
 ## Layout
 
 ```text
 project.yml            XcodeGen spec for the Xcode project
 Config/                Build settings; Local.xcconfig (yours, gitignored) overrides Base.xcconfig
-Packages/RiffCore/     Pure Swift: every game rule, plus the riffcli command-line tool and tests
-RiffApp/               The iMessage app stub: Info.plist and store icon only, no code
-RiffMessages/          The Messages extension: screens, audio, rendering
+Packages/iMessageRiffCore/     Pure Swift: every game rule, plus the imessageriffcli command-line tool and tests
+iMessageRiffApp/               The iMessage app stub: Info.plist and store icon only, no code
+iMessageRiffMessages/          The Messages extension: screens, audio, rendering
 tools/                 Python content tools
 scripts/               Developer scripts
 docs/                  Plan, review, decisions, specs, phase outlines
@@ -73,7 +87,7 @@ LICENSES/              One licence file per song
 
 ## Conventions
 
-- `RiffCore` imports nothing from UIKit, SpriteKit, AVFoundation or Messages, and builds on Linux.
+- `iMessageRiffCore` imports nothing from UIKit, SpriteKit, AVFoundation or Messages, and builds on Linux.
 - Time is integer microseconds and ratios are integers, so a run scores identically on every device.
 - Every tunable number lives in `GameConfig`; after changing it, run `scripts/sync-config-snapshot.sh`.
 - Tests land with the code they cover. Files stay under about 400 lines.

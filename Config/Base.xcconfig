@@ -1,16 +1,17 @@
 // Build settings shared by every target and configuration.
 // Put your own values in Config/Local.xcconfig (gitignored); see Local.xcconfig.example.
 
-// Reverse-DNS prefix for bundle ids. The app is <prefix>.Riff, the extension <prefix>.Riff.MessagesExtension.
-RIFF_BUNDLE_PREFIX = dev.riff.placeholder
+// The app defaults to <prefix>.iMessageRiff; extensions are nested beneath the app identifier.
+RIFF_BUNDLE_PREFIX = dev.imessageriff.placeholder
+RIFF_APP_BUNDLE_IDENTIFIER = $(RIFF_BUNDLE_PREFIX).iMessageRiff
 
-// The name shown in the Messages app drawer. "Riff" is a code name; change it here only.
-RIFF_DISPLAY_NAME = Riff
+// The name shown in the Messages app drawer.
+RIFF_DISPLAY_NAME = iMessageRiff
 
 // Your Apple Developer Team ID. Empty is fine for simulator builds.
 DEVELOPMENT_TEAM =
 
-// Keep MARKETING_VERSION equal to RiffCoreInfo.version; a RiffCore test compares them.
+// Keep MARKETING_VERSION equal to IMessageRiffCoreInfo.version; an iMessageRiffCore test compares them.
 MARKETING_VERSION = 0.1.0
 CURRENT_PROJECT_VERSION = 1
 

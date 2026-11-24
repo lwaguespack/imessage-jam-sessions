@@ -1,4 +1,4 @@
-# Phase 1: core rules (RiffCore)
+# Phase 1: core rules (iMessageRiffCore)
 
 Every rule that decides a score, a turn or a level, as a pure Swift package with tests. Nothing in
 this phase needs a Mac or a device: it builds and tests on Linux (`scripts/test-core.sh`) and on
@@ -6,6 +6,8 @@ macOS in CI.
 
 Specs: [GAME_RULES.md](../specs/GAME_RULES.md), [MATCH_PROTOCOL.md](../specs/MATCH_PROTOCOL.md),
 [CHART_FORMAT.md](../specs/CHART_FORMAT.md). Where a task and a spec disagree, fix the spec first.
+The game rules were independently challenged before P1.3; draft 2 and decisions D-092 to D-095
+record the corrected boundaries and the version-3 rules digest.
 
 ## Order of work
 
@@ -28,24 +30,28 @@ flowchart LR
 P1.7 can run alongside the engine tasks. P1.8 needs only the score ceiling from P1.6, through a small
 lookup protocol, so most of it can also run alongside.
 
-All paths below are under `Packages/RiffCore/Sources/RiffCore/` unless they start with `Tests/` or
-`riffcli/`.
+All paths below are under `Packages/iMessageRiffCore/Sources/iMessageRiffCore/` unless they start with `Tests/` or
+`imessageriffcli/`.
 
 ## P1.0 Apply the decided values
 
-The scaffold's `GameConfig` holds PLAN.md revision 1 values. (D-080)
+**Done.** The scaffold's `GameConfig` held PLAN.md revision 1 values. (D-080)
 
 - Apply the tables "GameConfig changes required" in GAME_RULES.md section 12 and MATCH_PROTOCOL.md
   section 15.
 - Add `rulesVersion = 1` and `Tests/.../RulesVersionTests.swift`: a digest of the scoring-relevant
-  values is pinned to the version, so changing a value without bumping it fails.
+  values is pinned to the version, so changing a value without bumping it fails. The digest needs
+  `Crypto/SHA256.swift`, so that file and its tests land here, not in P1.2. (D-085)
 - Run `scripts/sync-config-snapshot.sh`; update `tools/tests` for the changed values.
-- Add `scripts/coverage-core.sh` (line coverage per file for `Sources/RiffCore`, fails under a
+- Add `scripts/coverage-core.sh` (line coverage per file for `Sources/iMessageRiffCore`, fails under a
   threshold); the phase gate uses it.
 
 **Done when:** `scripts/check.sh` passes and the snapshot is committed.
 
 ## P1.1 Models and the tempo map
+
+**Done.** Section 1.1 of GAME_RULES.md was corrected first: tick-to-time conversion rounds up (D-086).
+Manifest times are whole milliseconds (D-087).
 
 | File | Contents |
 | --- | --- |
@@ -55,23 +61,38 @@ The scaffold's `GameConfig` holds PLAN.md revision 1 values. (D-080)
 | `Chart/CompiledChart.swift` | Notes with precomputed times, miss deadlines, hold ends, phrase membership |
 
 Tests: conversion round trips at segment boundaries; a two-tempo map checked against hand-computed
-microseconds; negative time; `Int64` headroom at 400 BPM and 2 minutes.
+microseconds; negative time; `Int64` headroom at the validator's limits (300 BPM, resolution 960).
 
 ## P1.2 Chart decoding, validation and hash
 
+**Done.** CHART_FORMAT.md sections 1 to 4 were pinned first: strict reading and canonical writing
+(D-089), and how each validation rule is measured (D-088). One consequence is the owner's call: slow
+songs cannot pass the Hype rules (D-090).
+
 | File | Contents |
 | --- | --- |
-| `Chart/ChartDecoder.swift` | Strict JSON decode; rejects unknown format or version |
-| `Chart/ChartValidator.swift` | Every rule in CHART_FORMAT.md section 4, returning a list of issues with tick and lane |
-| `Crypto/SHA256.swift`, `Crypto/HMACSHA256.swift` | Pure Swift (no CryptoKit on Linux). Tested with the published FIPS 180-4 and RFC 4231 vectors; on Apple platforms a test compares against CryptoKit |
-| `Chart/ChartHash.swift` | The canonical string and hash (CHART_FORMAT.md section 2) |
-| `riffcli/Commands/ChartCommand.swift` | `riffcli chart check <file>` and `riffcli chart compute <file>` |
+| `Chart/ChartDecoder.swift` | Strict JSON decode; rejects unknown format or version, unknown fields, fractions and `null` |
+| `Chart/ChartValidator.swift` and its two extensions, `Chart/ChartIssue.swift` | Every rule in CHART_FORMAT.md section 4, returning a list of issues with rule, tick and lane |
+| `Chart/ChartComputation.swift` | The computed values, and which stored ones are stale |
+| `Crypto/HMACSHA256.swift` | Pure Swift (no CryptoKit on Linux), built on the `Crypto/SHA256.swift` from P1.0. Tested with the published RFC 4231 vectors; on Apple platforms a test compares against CryptoKit |
+| `Chart/ChartHash.swift`, `Support/Hex.swift` | The canonical string and hash (CHART_FORMAT.md section 2) |
+| `imessageriffcli/Commands/ChartCommand.swift` | `imessageriffcli chart check <file>` and `imessageriffcli chart compute <file>` |
 
-Tests: one failing fixture per validation rule; a passing example chart under
-`Tests/RiffCoreTests/Fixtures/`; hash stability; the hash ignores `sections` and changes with any
-note.
+Tests: one failing change per validation rule, each made to an example chart that a builder in the
+test target produces and that is committed as `Tests/iMessageRiffCoreTests/Fixtures/example-medium.json`; hash
+stability; the hash ignores `sections` and changes with any note.
+
+Follow-up:
+
+- P1.6 added computed base score, ceiling and cutoffs, and regenerated the example fixture.
+- No command passes a manifest to the validator yet (CHART_FORMAT.md section 7).
+- `scripts/check.sh` and Linux CI run `chart check` on the example chart.
 
 ## P1.3 Judge
+
+**Done.** `Judge` processes ordered touch and miss-deadline events without reading a clock. It
+rejects invalid lanes, incompatible compiled deadlines, backward events and unprocessed earlier
+misses instead of silently changing the result. The full input watermark is added in P1.5.
 
 `Engine/Judge.swift`: windows per difficulty, earliest-unjudged matching per lane, miss deadlines,
 ghost-tap classification and bounce grace (GAME_RULES section 3).
@@ -81,16 +102,24 @@ chords judged independently; every ghost-tap exemption.
 
 ## P1.4 Score, holds and Hype
 
+**Done.** The three components use integer arithmetic and expose explicit errors for invalid
+configuration, event ordering and overflow. P1.5 connects them through the event watermark.
+
 | File | Contents |
 | --- | --- |
 | `Engine/ScoreKeeper.swift` | Streak, multiplier, note points, the sustain accumulator `U` |
 | `Engine/HoldTracker.swift` | Rules H1 to H6: ownership, live interval in ticks, release |
 | `Engine/HypeMeter.swift` | Rules R1 to R6 in integer ticks |
 
-Tests: one per rule; multiplier change in the middle of a hold; the single floor; extension while
-active; a touch at exactly the expiry time.
+Tests: one per rule; an early release before the head and a release at the hold end; multiplier
+change in the middle of a hold; the single floor; all phrase members must hit; extension and a touch
+at exactly the expiry time.
 
 ## P1.5 Game session
+
+**Done.** Inputs and scheduled events share an inclusive watermark. Pause releases and effective
+late-input times are recorded in the run log, and only a final run can be replayed as a result
+(D-096). `SplitMix64` moved forward from P1.9 for the partition property test.
 
 | File | Contents |
 | --- | --- |
@@ -98,17 +127,26 @@ active; a touch at exactly the expiry time.
 | `Engine/GameSession.swift` | `apply`, `advance(to:)`, the scheduled-event queue and its total order; states ready, lead-in, playing, paused, finished |
 | `Engine/RunLog.swift` | The replayable input log: events plus chart hash, rules version, difficulty |
 
-Tests: the partition-invariance property test; late input clamping; pause sends releases; finality.
+Tests: the partition-invariance property test using complete input watermarks; same-time input
+ordering; late input at and before a committed watermark; pause sends releases; finality.
 
 ## P1.6 Results
 
-`Results/RunSummary.swift`, `Results/Accuracy.swift`, `Results/StarRating.swift`,
-`Results/PerfectRun.swift` (base score, ceiling, star cut-offs), wired into `riffcli chart compute`.
+**Done.** Accuracy, Gold, upward-rounded star cutoffs and the conservative score ceiling use integer
+arithmetic. The example's perfect-run score is independently checked at 62,887 points.
 
-Tests: accuracy rounding; star boundaries in integers; Gold; the perfect-run bot equals the stored
-base score of the example chart.
+`Results/RunSummary.swift`, `Results/Accuracy.swift`, `Results/StarRating.swift`,
+`Results/PerfectRun.swift` (base score, ceiling, star cut-offs), wired into `imessageriffcli chart compute`.
+
+Tests: accuracy rounding; upward-rounded star boundaries; Gold and penalised ghosts before the first
+hit; early Perfects can exceed base without Hype but not the ceiling; the perfect-run bot equals the
+stored base score of the example chart.
 
 ## P1.7 Progression
+
+**Done.** [PROGRESSION.md](../specs/PROGRESSION.md) specifies integer XP, injected time and UTC
+offsets, the featured schedule, explicit unlocks and merge-safe per-install XP counters. The
+featured schedule is empty until songs exist; the cosmetic IDs are placeholders.
 
 | File | Contents |
 | --- | --- |
@@ -124,36 +162,53 @@ deliberately empty.
 
 ## P1.8 Match
 
+**Done.** The version-2 model, bounded proposal join, in-memory fragment store, nickname validation,
+codec, URL forms, chart-aware decode pipeline, finality, ranking, settlement, routing and
+`payload inspect` are implemented and tested, including a version-1 decode fixture. The app must
+persist store fragments and the combined settlement/profile value atomically in later phases.
+
 | File | Contents |
 | --- | --- |
-| `Match/MatchState.swift`, `Match/Entry.swift`, `Match/Nickname.swift` | The model and nickname rules |
+| `Match/MatchState.swift`, `Match/MatchEntry.swift`, `Match/Nickname.swift` | The model and nickname rules |
 | `Match/MatchMerge.swift` | Section 4 of the protocol |
-| `Match/Finality.swift`, `Match/Ranking.swift` | Sections 5 and 6 |
-| `Match/PayloadCodec.swift`, `Support/ByteWriter.swift`, `Support/ByteReader.swift`, `Support/Base64URL.swift` | Wire format version 1 |
-| `Match/MatchURL.swift`, `Match/DecodeOutcome.swift` | The three URL forms and the ordered decode pipeline |
+| `Match/MatchFinality.swift`, `Match/MatchRanking.swift` | Sections 5 and 6 |
+| `Match/PayloadCodec.swift`, `Support/ByteWriter.swift`, `Support/ByteReader.swift`, `Support/Base64URL.swift` | Wire format version 2 and the defined version-1 subset |
+| `Match/MatchURL.swift`, `Match/MatchDecode.swift` | The three URL forms and the ordered decode pipeline |
 | `Match/Settlement.swift` | The ledger rule for bonus XP |
-| `Match/Router.swift`, `Match/Submission.swift` | The routing function and the submission states |
-| `riffcli/Commands/PayloadCommand.swift` | `riffcli payload inspect <url>` |
+| `Match/MatchRouter.swift`, `Match/MatchSubmission.swift`, `Match/MatchAttempts.swift` | Routing, submission states and capped attempt counts |
+| `Match/MatchActions.swift`, `Match/MatchStore.swift` | Submission, close and rematch updates; lossless in-memory fragment storage |
+| `imessageriffcli/Commands/PayloadCommand.swift` | `imessageriffcli payload inspect <url>` |
 
 Tests: as listed in MATCH_PROTOCOL.md section 14.
 
 ## P1.9 Bots, simulators and coverage
 
+**Done.** Seeded integer-only skill, burst and masher bots drive the production session. The CLI
+reports star distributions and lower-median scores. Golden replay and CLI fixtures pin output. For
+the example chart, a note-density bound proves that neither masher can Full Combo or exceed the
+median of a fixed 32-seed casual sample, regardless of masher phase; 32 sampled seeds per period
+also exercise the implementation. This does not claim that the sample is a real-player distribution.
+
 | File | Contents |
 | --- | --- |
 | `Support/SplitMix64.swift` | The seeded generator |
 | `Sim/Bots.swift` | Perfect, skill-level, clustered and masher bots (GAME_RULES section 10) |
-| `riffcli/Commands/SimulateCommand.swift` | `riffcli simulate <chart> --seed N --runs N`: star distribution per bot |
+| `imessageriffcli/Commands/SimulateCommand.swift` | `imessageriffcli simulate <chart> --seed N --runs N`: star distribution per bot |
 | `Tests/.../ConversationSimulatorTests.swift` | Several devices, random orderings, duplicates, drops, reinstall, second device |
-| `Tests/.../Fixtures/` | Golden runs and payload vectors as JSON |
+| `Tests/.../Fixtures/` | Golden run logs, simulator output and payload vectors |
 
 ## Done when
 
+**Passed.** Local checks and Linux/macOS CI are green. Directory coverage is 96.5% for Engine,
+94.7% for Match and 97.1% for Progression. The device spike still needs signed real-device reports.
+
 - `scripts/check.sh` passes locally and CI is green on Linux and macOS.
-- Line coverage is at least 90% on `Engine/`, `Match/` and `Progression/` (`scripts/coverage-core.sh`).
-- The conversation simulator converges for 1,000 seeds with no lost entry and exactly-once bonus XP.
+- Line coverage is at least 90% on each of `Engine/`, `Match/` and `Progression/`, counted over the
+  whole directory (`scripts/coverage-core.sh --min 90 Engine Match Progression`).
+- The conversation simulator converges for 1,000 seeds with no lost entry and one bonus per eligible
+  local ledger after convergence; it does not prove global agreement on earlier payouts (D-099).
 - The masher bot never earns a Full Combo on the example chart and scores below the casual bot.
-- `riffcli chart check` passes on the example chart, and `riffcli payload inspect` round-trips the
+- `imessageriffcli chart check` passes on the example chart, and `imessageriffcli payload inspect` round-trips the
   golden vectors.
 
 ## What this phase needs from the owner

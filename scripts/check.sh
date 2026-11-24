@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: scripts/check.sh   Runs every check that works without Xcode. Run it before pushing.
+# Usage: scripts/check.sh   Runs local checks before pushing, including the simulator build on macOS.
 set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -18,12 +18,22 @@ step() {
     fi
 }
 
-step "Swift formatting" scripts/swiftw format lint --strict --recursive Packages RiffMessages
-step "RiffCore tests" scripts/test-core.sh
+step "Swift formatting" scripts/swiftw format lint --strict --recursive Packages iMessageRiffMessages Tests
+step "iMessageRiffCore tests" scripts/test-core.sh
 step "Tunables snapshot is current" scripts/sync-config-snapshot.sh --check
+step "Example chart is valid" scripts/swiftw run --package-path Packages/iMessageRiffCore imessageriffcli chart check \
+    Packages/iMessageRiffCore/Tests/iMessageRiffCoreTests/Fixtures/example-medium.json
+step "Payload inspect golden vectors" scripts/test-payload-cli.sh
+step "Seeded simulator golden run" scripts/test-simulate-cli.sh
 step "Python tools" scripts/test-tools.sh
 step "Icon set is complete" python3 scripts/make-placeholder-icons.py --check
 
-echo
-echo "Not run here (CI runs them on macOS): xcodegen generate, the iOS Simulator build."
+if [[ "$(uname -s)" == Darwin ]]; then
+    step "Spike diagnostic tests" scripts/test-spike.sh
+    step "iOS Simulator build" scripts/build-ios-simulator.sh
+    step "App and extension names and bundle IDs" scripts/test-bundle-ids.sh --built
+else
+    echo "SKIP  iOS Simulator build (requires macOS and Xcode; CI builds it on macOS)"
+fi
+
 exit "$failed"

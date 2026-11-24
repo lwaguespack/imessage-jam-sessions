@@ -86,6 +86,8 @@ esac
 
 # --init gives the container a real init process, without which Ctrl-C does not stop the build.
 docker_args=(run --rm --init --interactive --volume "$repo_root:$repo_root" --workdir "$workdir")
+# Reaches the container only when set: tests rewrite their fixtures under RIFF_WRITE_FIXTURES=1.
+docker_args+=(--env RIFF_WRITE_FIXTURES)
 if [[ -t 0 && -t 1 ]]; then
     docker_args+=(--tty)
 fi

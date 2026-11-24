@@ -11,7 +11,7 @@ One song, start to finish, on a real iPhone.
 | Task | What | Changed by the review |
 | --- | --- | --- |
 | P3.1 Game screen | SpriteKit view hosted in SwiftUI | Guard is by view size, not orientation: pause and ask to rotate back when wider than tall or too short (D-026) |
-| P3.2 Highway scene | Projection, lanes, strike line, beat lines, pooled notes, hold trails | Layout from the game view's safe-area rectangle; strike-line position from spike S3 (D-064). Projection math in `RiffCore` so it is unit-tested |
+| P3.2 Highway scene | Projection, lanes, strike line, beat lines, pooled notes, hold trails | Layout from the game view's safe-area rectangle; strike-line position from spike S3 (D-064). Projection math in `iMessageRiffCore` so it is unit-tested |
 | P3.3 Input | Touches into the game session | A UIKit input view with its own gesture recognizer over the highway; blocks competing recognizers during a song; a cancelled touch is a release; columns sit above the home-indicator inset (D-025) |
 | P3.4 Effects and HUD | Sparks, judgement text, streak, score, Hype | Hit feedback immediate; miss feedback after the input guard (D-050) |
 | P3.5 Results screen | | Shows tries and ghost-tap count |
@@ -25,7 +25,7 @@ with zero cancelled touches in the S5 protocol.
 ## Phase 4: Messages integration
 
 Rules: [MATCH_PROTOCOL.md](../specs/MATCH_PROTOCOL.md). Most of the logic already exists in
-`RiffCore` from P1.8; this phase connects it to Messages.
+`iMessageRiffCore` from P1.8; this phase connects it to Messages.
 
 | Task | What | Changed by the review |
 | --- | --- | --- |
@@ -34,13 +34,14 @@ Rules: [MATCH_PROTOCOL.md](../specs/MATCH_PROTOCOL.md). Most of the logic alread
 | P4.3 Duel flow | Start, respond, result, rematch, waiting | Submission state machine; run persisted at song end; previous-round summary (D-014, D-020) |
 | P4.4 Group round flow | Leaderboard card, close round | Deadline and roster size in the payload; late entries (D-012) |
 | P4.5 Edge cases | Version or chart mismatch, unreadable payload, collapse mid-song | Ordered decode outcomes (D-019); no external links (D-023); non-iMessage chats (D-024) |
-| P4.6 Match store (new) | Per-device store, merge on every decode including `didReceive`, Re-post | D-011 |
-| P4.7 Settlement (new) | Ledger-driven bonus XP | D-014 |
+| P4.6 Match store (new) | Per-device store, merge on every decode including `didReceive`, Re-post | Preserve fragments and the first-final descriptor across restarts (D-011, D-119) |
+| P4.7 Settlement (new) | Minimal durable profile and ledger; bonus XP | Commit joined fragments, first-final descriptor, profile and ledger atomically before displaying final results (D-014, D-119) |
 
 **Done when:** 3 duel rounds between two real iPhones and one 3-person group round finish with correct
 winners, series and bubble updates, on iPhone and iPad; **and** the concurrency protocol from spike
-S2.5 ends with every device showing all three entries after at most one Re-post, and the same podium
-paid once.
+S2.5 ends with every device showing the same merged standings after at most one Re-post. Each local
+ledger pays at most once based on its first final observation; late arrivals can leave earlier
+payouts different across devices (D-099). Restart and interrupted-write tests cover P4.6/P4.7.
 
 ## Phase 5: content
 
@@ -48,7 +49,7 @@ paid once.
 the review area that did not run. Known changes so far:
 
 - Songs are 60 to 90 seconds (D-062).
-- `riffcli` replaces the Python `chartcheck`; Python keeps conversion, draft reduction and audio
+- `imessageriffcli` replaces the Python `chartcheck`; Python keeps conversion, draft reduction and audio
   generation (D-007).
 - Chart rules are numeric and enforced ([CHART_FORMAT.md](../specs/CHART_FORMAT.md) section 4), and
   every chart must pass the masher-bot rule (GAME_RULES section 10).
@@ -62,12 +63,12 @@ above: it can start now.
 
 | Task | Changed by the review |
 | --- | --- |
-| P6.1 Profile store | Merge-safe model; device-only, stated on the Profile screen (D-070); stored in the extension's own container (D-005) |
+| P6.1 Profile store | Extend Phase 4's durable profile with records and settings; device-only, stated on the Profile screen (D-070); stored in the extension's own container (D-005, D-119) |
 | P6.2 XP on results, level-up, unlocks | One integer XP formula (D-072); bonus XP from the ledger (D-014) |
 | P6.3 Records and Profile screen | Series records keyed by the opponent's player id (D-010) |
 | P6.4 Daily streak and featured song | Travel-safe streak (D-073); fixed-epoch rotation (D-074) |
 
-**Done when:** XP and unlocks match the progression tests in `RiffCore` on device.
+**Done when:** XP and unlocks match the progression tests in `iMessageRiffCore` on device.
 
 ## Phase 7: polish, onboarding and accessibility
 

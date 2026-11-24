@@ -12,6 +12,7 @@ two review areas (build and content/UX/legal) did not run. PLAN_REVIEW.md says w
 - **Decided**: an engineering call made during the plan review. Reversible; say so and it changes.
 - **Owner**: needs your call. The default shown is what the work assumes until you answer.
 - **Device**: a real device has to confirm it. The device spike (Phase S) lists the test.
+- **Superseded**: a later decision replaces the earlier call.
 
 ## Open decisions for the owner
 
@@ -19,12 +20,13 @@ two review areas (build and content/UX/legal) did not run. PLAN_REVIEW.md says w
 | --- | --- | --- | --- |
 | D-100 | Your Grok and Opus notes | Not received; plan reconciled against them when shared | Before Phase 1 ends |
 | D-101 | Music source for the 5 launch songs | Commission originals with stems; placeholders until then | Phase 0 (long lead) |
-| D-102 | Product name | "Riff" stays a code name until a name clears App Store and trademark searches | Phase 8 |
+| D-102 | Product name clearance | iMessageRiff; App Store availability and trademark review still need confirmation | Phase 8 |
 | D-103 | Bundle id prefix and Apple Developer Team | Placeholder prefix in `Config/Base.xcconfig`; yours go in `Config/Local.xcconfig` | Phase S |
 | D-104 | Fallback web domain | `riff.invalid` placeholder (never resolves) | Phase 4 |
 | D-052 | Ghost taps (a touch that matches no note) | Reset the streak; not counted as a Miss | Phase 1 |
 | D-058 | Retries on a challenge run | Allowed, counted, and shown on the card ("try 3") | Phase 1 (payload) |
 | D-062 | Song length | 60 to 90 seconds everywhere | Phase 5 |
+| D-090 | Slow songs: the Hype rules need about 107 beats, so a 60-second song needs about 107 BPM | Keep the rules; choose songs that fit | Phase 5 (and D-101) |
 | D-030 | Should the game play sound when the phone is on silent | Yes, once the player taps Play | Phase 2 |
 | D-034 | Wireless audio (AirPods) in duels | Allowed, with a calibration prompt and a "best on speaker or wired" note | Phase 2 |
 | D-070 | Sync progress through iCloud | No: device-only in v1, stated on the Profile screen | Phase 6 |
@@ -35,13 +37,14 @@ two review areas (build and content/UX/legal) did not run. PLAN_REVIEW.md says w
 ## Process and tooling
 
 ### D-001 The repository root is the project root; "Riff" is a code name
+**Naming superseded by D-121.**
 **Decided.** The plan's `riff/` folder is this repository. Every user-visible use of the name sits
 behind one build setting so renaming is one edit.
 
 ### D-002 The build loop is CI plus a Swift container; your Mac is needed only for devices
 **Decided.** Replaces plan section 12. The repository is public, so GitHub Actions macOS runners are
 free: every push runs `xcodegen`, an unsigned simulator build and the test suites, and the logs are
-readable from a cloud session. `RiffCore` also builds and tests on Linux (Swift 6.2 in Docker), so
+readable from a cloud session. `iMessageRiffCore` also builds and tests on Linux (Swift 6.2 in Docker), so
 rules work no longer waits on a Mac. What still needs you: running on real iPhones, TestFlight, and
 pasting Diagnostics reports back.
 
@@ -64,7 +67,7 @@ stores take a base URL so a later companion app can move them into a group conta
 yours.
 
 ### D-007 One Swift command-line tool, built from the engine, validates charts
-**Decided.** `riffcli` (in the `RiffCore` package) validates charts, writes their computed fields
+**Decided.** `imessageriffcli` (in the `iMessageRiffCore` package) validates charts, writes their computed fields
 (base score, score ceiling, star cut-offs, hash), runs the bot simulator and inspects payloads. A
 Python re-implementation of scoring would drift from the engine. Python keeps what it is good at:
 converting `.chart` files, drafting lower difficulties, generating audio.
@@ -76,7 +79,7 @@ a silent change fails. `rulesVersion` is part of the chart hash and the match pa
 versions with different rules get "Update needed" instead of a quietly unfair duel (GAME-8).
 
 ### D-009 Determinism rules for the engine
-**Decided.** `RiffCore` never reads a clock, a random source, or iterates a `Dictionary`/`Set`
+**Decided.** `iMessageRiffCore` never reads a clock, a random source, or iterates a `Dictionary`/`Set`
 where order reaches output. Bots use a seeded generator that ships in the package. Time is integer
 microseconds, chart positions are integer ticks, ratios are integers (GAME-2, GAME-3, GAME-17).
 
@@ -94,11 +97,11 @@ device" instead of "Your turn".
 ### D-011 Match state is mergeable, and each device keeps its own copy
 **Decided.** As planned, two people who play from the same bubble each send a state that omits the
 other, and Messages keeps only the later message: a score silently disappears (MSG-1, MATCH-1).
-Now: entries form a grow-only set keyed by round and player; merging two states is commutative,
-associative and idempotent; every device keeps a `MatchStore` holding the merge of everything it has
-decoded or sent; an outgoing message always carries the merged state; and if a tapped bubble lacks
-an entry the device knows about, the match screen offers "Re-post" to repair the bubble without
-replaying. Exact rules: [specs/MATCH_PROTOCOL.md](specs/MATCH_PROTOCOL.md).
+Now: entries live in a grow-only set of proposals per round; compatible joins within the payload
+limits are commutative, associative and idempotent. Every device keeps its received fragments and
+re-posts their join. If the join exceeds the limits, it preserves the fragments and reports the
+conflict rather than dropping scores. Exact rules: [specs/MATCH_PROTOCOL.md](specs/MATCH_PROTOCOL.md)
+and D-097.
 
 ### D-012 A group round ends when closed, when everyone counted at the start has played, or after 24 hours
 **Owner (duration).** "Everyone has submitted" never happens in a real group chat: members without
@@ -129,7 +132,7 @@ Encoding is canonical: equal states give equal bytes.
 **Decided.** HMAC-SHA256 truncated to 8 bytes with a documented per-version constant key. Only this
 extension can create its messages, and anyone able to run modified code has the key anyway, so the
 tag detects corruption and casual edits and nothing more (MATCH-11). No build-time secret plumbing,
-which also suits a public repository. SHA-256 is implemented in `RiffCore` (CryptoKit does not exist
+which also suits a public repository. SHA-256 is implemented in `iMessageRiffCore` (CryptoKit does not exist
 on Linux) and cross-checked against CryptoKit in the macOS test run.
 
 ### D-017 The payload must never reach a web server; the spike picks the URL form
@@ -160,7 +163,7 @@ score" button using `send`.
 ### D-021 Routing is a pure function of extension state
 **Decided.** Selection in Messages is sticky and re-tapping the same bubble fires no callback
 (MSG-5). The router is re-evaluated on every lifecycle callback from explicit inputs, lives in
-`RiffCore` so it is unit-tested, and every match screen has a Home action.
+`iMessageRiffCore` so it is unit-tested, and every match screen has a Home action.
 
 ### D-022 Bubble text comes from the payload; each message sets summary and accessibility text
 **Decided.** Names in captions use the players' nicknames. The undocumented participant-name
@@ -219,7 +222,7 @@ terms that hardware cannot fail for us.
 
 ### D-033 Calibration: 32 scored taps after 4 warm-ups, median, with rejection rules
 **Decided.** Sixteen taps give a standard error near the ±10 ms gate, so a correct build would
-fail the gate a third of the time (AUD-4). The estimator is pure code in `RiffCore` with tests.
+fail the gate a third of the time (AUD-4). The estimator is pure code in `iMessageRiffCore` with tests.
 The visual offset comes from the display's presentation time plus a trim slider, not a tap-to-flash
 test (AUD-7).
 
@@ -318,10 +321,10 @@ defined numerically (GAME-11).
 **Owner.** The plan said 60 to 90 in two places and 60 to 120 in two others; 120 breaks the
 "under two minutes" pillar (GAME-13).
 
-### D-063 The score ceiling is tightened
-**Decided.** The ceiling used to reject impossible scores assumed Hype for the whole song. It now
-allows Hype only for as many beats as the chart's phrases can fund (GAME-15). The plan's example
-score, 412,300, exceeded its own chart's ceiling and is corrected.
+### D-063 A tighter score ceiling was proposed
+**Superseded by D-095.** The proposed Hype-window bound was not proved for separated activations,
+early hits and concurrent holds. The conservative whole-song Hype ceiling remains until a tighter
+bound is proved. The plan's example score, 412,300, exceeded its chart's ceiling.
 
 ### D-064 Touch geometry is defined against the game view and settled in the spike
 **Device.** The plan put the strike line inside the touch zone while claiming thumbs never cover
@@ -335,14 +338,15 @@ decided on a phone.
 "no accounts, no network" and says so on the Profile screen. The stored model is merge-safe (XP as
 a per-install counter, unlocks as a grow-only set) so iCloud sync can be added without a migration.
 
-### D-071 Payload schema v1 field list
-**Decided.** Adds roster size, deadline, attempt count, equipped title and frame, content revision,
-rules version and the previous-round summary; drops stars and Full Combo, which are derived
-(MATCH-12).
+### D-071 Payload field list
+**Revised by D-098.** Adds roster size, deadline, attempt count, equipped title and frame, content
+revision, rules version and the previous-round summary. Stars are derived, but Full Combo cannot be
+derived from score and longest streak, so version 2 carries its status.
 
 ### D-072 XP is one integer formula
 **Decided.** Events are summed, then streak, featured and practice multipliers apply as integer
 percentages with one floor. Day one of a streak is +0%, day two +10%, capped at +50% (MATCH-15).
+D-107 corrects the percentage divisor and specifies that deferred match bonuses are flat.
 
 ### D-073 Daily streak survives travel and ignores clock tricks
 **Decided.** Stores the last run time in UTC, the local day, and a high-water mark (MATCH-16).
@@ -354,22 +358,276 @@ percentages with one floor. Day one of a streak is +0%, day two +10%, capped at 
 **Decided.** Level is derived from XP, not stored (MATCH-18).
 
 ### D-076 Match and progression rules get a randomised convergence test and shared golden vectors
-**Decided.** A simulator inside the `RiffCore` tests runs several devices through random message
-orderings, duplicates, reinstalls and second devices, asserting convergence, no lost entry and
-exactly-once XP (MATCH-20, adapted: written in Swift, since Swift now runs in every session).
+**Decided.** A simulator inside the `iMessageRiffCore` tests runs several devices through random message
+orderings, duplicates, reinstalls and second devices, asserting convergence and no lost entry for
+joins within the limits, plus at-most-once local settlement. D-099 records why first-observed
+standings and payouts cannot be guaranteed to agree across disconnected devices.
 
 ## Carried into the first tasks
 
 ### D-080 `GameConfig` still holds revision-1 values where a decision changed them
-**Decided.** The scaffold's `GameConfig` was written from PLAN.md revision 1. Task P1.0 applies the
-decided values (same-lane gaps, star shares, per-difficulty streak steps, ghost-tap rule, song
-length, payload limits, calibration and miss-duck settings) and adds `rulesVersion`, before any
-engine code is written. The list is in [plan/phase-1-core-rules.md](plan/phase-1-core-rules.md).
+**Decided; applied in task P1.0.** The scaffold's `GameConfig` was written from PLAN.md revision 1.
+Task P1.0 applied the decided values (same-lane gaps, star shares, per-difficulty streak steps,
+ghost-tap rule, song length, payload limits and miss-duck settings) and added `rulesVersion`, before
+any engine code was written. The calibration settings first listed here wait for Phase 2 (D-083).
+The list is in [plan/phase-1-core-rules.md](plan/phase-1-core-rules.md).
 
 ### D-081 The group-round concurrency test needs three Apple IDs
 **Decided.** The plan budgeted two test devices; the race in D-011 only shows with three members
 (MSG-1). Phase S asks for a third tester for one session.
 
 ### D-082 The two unfinished review areas are scheduled, not skipped
-**Decided.** The build/architecture and content/UX/legal reviews did not run. They are the first
-task of the next working session, before Phase 5 (content) planning is trusted.
+**Decided (by the owner).** The build/architecture and content/UX/legal reviews did not run. The
+build and architecture review runs once Phase 1 exists, so that there is real code to judge. Content,
+UX and legal wait for Phase 5 planning, which is not trusted before then.
+
+## Phase 1
+
+### D-083 Audio and timing tunables join `GameConfig` with the Phase 2 timing code
+**Decided.** D-080 listed calibration settings among the values for task P1.0, but neither spec table
+contains them, and `playback.driftCheckIntervalMicros` and `driftCorrectionThresholdMicros` still
+describe the clock that D-031 replaced. Phase 2 starts only after spike S1, which decides several of
+its rules, and nothing in Phase 1 reads these values. Task P2.0 adds the calibration, clock-filter and
+route settings and removes the two drift values.
+
+### D-084 The integrity key is the SHA-256 of a published label
+**Decided.** D-016 asks for a documented constant key per wire version. `payload.integrityKeyV1` is
+the SHA-256 of the ASCII text `riff-match-integrity-key-v1`, so its 32 bytes can be re-derived instead
+of trusted, and a test does that. A later wire version takes its own label.
+
+### D-085 The rules digest covers score-relevant config and the input guard
+**Decided.** The test that pins scoring values to `rulesVersion` (D-008) takes SHA-256 over the
+canonical JSON of `rulesVersion`, `playback.inputGuardMicros` and the `judging`, `scoring`, `hype` and `stars` groups of
+`GameConfig`: the values the engine reads to judge and score a run (GAME_RULES sections 3 to 7).
+Chart limits, payload limits, XP and the other playback settings are outside it, so tuning them does
+not force a rules bump. D-092 adds `playback.inputGuardMicros`: changing it can change whether an
+input arrives after the committed watermark and is clamped. To keep `hype` to scoring
+values, the phrase-count limits (4 to 6 per chart) moved from `hype` to `charts`. A rule change that
+is not a config value is invisible to the digest and still needs the bump.
+
+### D-086 Tick-to-time conversion rounds up; time-to-tick rounds down
+**Decided.** GAME_RULES section 1.1 rounded both conversions down, so they disagreed: at 128 BPM and
+resolution 192, tick 48 converted to 117,187 µs, and that time converted back to tick 47. Read with
+the hold rules, a hold released at exactly its end time would have lost a tick of sustain. Now
+`time(tick)` rounds up and `tick(time)` rounds down, which makes `tick(t) >= k` hold exactly when
+`t >= time(k)`. Two ticks must never share a time, so a tempo map needs at least one microsecond per
+tick, and the chart validator limits `resolution` to 1 to 960: five times the default of 192, and
+still about 208 µs per tick at 300 BPM. A note's time can move by one microsecond, so `rulesVersion`
+becomes 2.
+
+### D-087 Manifest times are whole milliseconds
+**Decided.** PLAN.md appendix B gave `durationSec` and `previewStartSec` as decimal numbers beside an
+integer `audioOffsetMs`. They become `durationMs` and `previewStartMs`, so the chart validator
+compares a song's length in integers and no manifest value needs floating point. No manifest file
+exists yet, so nothing has to be converted.
+
+### D-088 Chart validation has two passes, and each rule has one stated measurement
+**Decided.** CHART_FORMAT.md section 4 gave limits without saying how to measure them, and several
+could be read two ways. The validator checks structure first (ranges, ordering, the tempo list) and
+reports only those issues when any fails: the other rules are stated in milliseconds, and times mean
+nothing while ticks or tempos are out of range. No tick may pass 456,000, where a 95-second song ends
+at 300 BPM and resolution 960, which also keeps the tick-to-time arithmetic inside `Int64`. The
+readings chosen:
+
+- Peak density counts a window that starts at a note and stops short of 1,000 ms later, so a steady
+  four notes a second peaks at 4, not 5.
+- The same-lane gap runs from a note's end, so after a hold it starts when the hold ends.
+- A hold is not a contact on the tick it ends on.
+- The song's beats, for the Hype capacity share, run from tick 0 to the latest end of any note.
+- A song id is 1 to 24 characters from `a` to `z`, `0` to `9` and `-`. MATCH_PROTOCOL.md allows 24
+  ASCII bytes; the narrower set keeps an id safe in a file name and in a URL.
+- A manifest passed to the validator must state a duration of 55,000 to 95,000 ms, the range
+  CHART_FORMAT.md section 5 already gave.
+
+Nine limits that were prose became `GameConfig` properties in `charts` and `songs`. They are outside
+the rules digest (D-085), so `rulesVersion` stays 2.
+
+### D-089 Chart files are read strictly and written canonically
+**Decided.** `ChartDecoder` refuses a file with a missing field, a wrong type, a field the format
+does not define, an explicit `null`, or a number that is not whole. Swift's decoder ignores unknown
+keys, so a misspelt `length` would have turned a hold into a tap, and changed the chart's hash,
+without a word. `imessageriffcli chart compute` rewrites the whole file as canonical JSON, so a chart has one
+byte form and a diff shows only real changes; a file that fails validation is left untouched. The
+hash's `rules=` line is the engine's `rulesVersion`, not the number stored in the file, so a chart
+computed under older rules is reported as out of date instead of passing.
+
+### D-090 Slow songs cannot pass the Hype rules
+**Owner.** A chart needs 4 to 6 Hype phrases, and their capacity (8 beats each) may be at most 30% of
+the song's beats, so a chart needs at least 106 2/3 beats: a song whose notes end at 60 seconds must
+average about 107 BPM, and one at 90 seconds about 71 BPM. Tempos down to 40 BPM are allowed, so a
+slow song passes the tempo rule and can never pass the Hype rules. Both numbers come from the gameplay
+review, which had no skeptic pass. The default keeps them and chooses launch songs that fit (D-101).
+The alternatives are fewer phrases for short or slow songs, or a larger share.
+
+### D-091 The device spike is available in TestFlight and saves its report locally
+**Decided.** The spike document called its entry point debug-only, but the Xcode scheme archives
+Release for TestFlight. The temporary diagnostics are available in both configurations and append
+their report locally as events happen, so a process termination does not discard the earlier
+measurements. Test messages contain synthetic data only. Device observations remain unconfirmed until
+the owner runs the protocols.
+
+### D-092 Inputs are finalized behind a watermark
+**Decided.** The draft processed `advance(to: t)` inclusively but also allowed a touch at `t` to
+arrive afterward. At a note's Good deadline, advancing first produced a Miss; applying the touch
+first produced a hit. It also specified lane ordering without saying how to order same-lane touches.
+Inputs are now queued, and a watermark processes them with scheduled events in a deterministic
+order. Inputs at or before an already committed watermark are explicitly late and move to its next
+microsecond; they cannot retract emitted events. The default 50 ms guard delays final judgement
+feedback, while visual/haptic feedback may still react immediately. Because the guard affects which
+inputs are late, it joins the pinned rules digest. The owner was unavailable when asked about this
+tradeoff; the deterministic option is used until overruled.
+
+### D-093 Ghost penalties and Full Combo are explicit
+**Decided.** A penalised ghost before the first hit resets a zero streak, so the subsequent longest
+streak can still equal the note count; the draft nevertheless said such a run could not be a Full
+Combo. Full Combo now requires every note hit and no penalised ghost. `dropTier` was undefined; it
+drops the displayed multiplier by one tier and clears that tier's progress, even after the streak
+has climbed past the multiplier cap. Ignored bounces are not counted as ghost taps.
+
+### D-094 Hold and Hype boundaries are unambiguous
+**Decided.** A head hit early and released before its tick has an empty sustain interval, not a
+negative one. Releasing at the exact end completes the hold once. A phrase completes only after all
+its members hit: hitting its chronologically last note first must not award meter before an earlier
+member can Miss. A phrase completed exactly at Hype expiry extends the current activation before the
+old expiry event runs. Drain uses the configured positive `drainPerBeat`.
+
+### D-095 Cutoffs, countdowns and the score ceiling
+**Decided.** Stored star cutoffs round up: with base 101 and an 85% threshold, 86 is the first
+qualifying integer, not 85. The lead-in includes the configured countdown: at 40 BPM a 2-second
+minimum is only two beats, too short for a three-beat countdown. Base score is not a ceiling: at
+120 BPM, resolution 192 and Expert's 10-note step, a 1,920-tick hold plus nine other Perfect heads
+can score 1,389 when the last head is 45 ms early versus a base of 1,387 at offset zero. The loose
+top-multiplier-plus-Hype ceiling remains: every note and each hold tick is bounded independently,
+including overlapping holds and early hits. A tighter ceiling is not used without a proof.
+
+### D-096 Pause releases and completed-run replay
+**Decided.** A pause can arrive while inputs are still waiting behind the watermark. The engine
+first processes same-time touch-downs, then synthesizes releases for the touches still active, then
+processes the remaining events at that timestamp. A pause before an already-queued future input is
+rejected rather than silently discarding that input. Run logs record effective and original input
+times, late status, synthetic releases and the final timestamp. An unfinished log cannot be turned
+into a completed score by replaying the remaining chart as Misses.
+
+### D-097 Keep concurrent proposals rather than picking a whole state
+**Decided.** Draft merge failed associativity: for chart X at t=10, chart Y at t=15 and chart X at
+t=20, the two groupings keep `{a,c}` and `{a}` respectively. A three-device simulation also lost
+`c` before re-posting. Choosing history by whole-state bytes is independently non-associative, and
+equal `(t0, starter)` values did not break different-chart ties. Version 2 keeps the union of
+immutable proposals, merges entries within each, and chooses history by its own canonical bytes.
+Same-chart entries remain available even across a competing chart. Joins that exceed the explicit
+size limits fail without truncation; the store keeps the original fragments and the UI blocks the
+re-post. The owner was unavailable when asked about this overflow policy, so the lossless default
+is used until overruled.
+
+### D-098 Version 2 carries Full Combo and absolute times
+**Decided.** The same score and longest streak can be both a Full Combo and not one: a penalised
+ghost before the first hit changes neither. Version 2 carries a Full Combo status. Unsigned time
+offsets also cannot encode a player whose clock is behind the starter, so timestamps become bounded
+absolute Unix seconds. Version 2 bounds proposal count, entry count and varints explicitly; D-111
+adds the previous chart and raises the conservative size bounds to 887 bytes for a duel and 2,607
+for a group round. P1.8 bumped the schema,
+added its key and limits to `GameConfig`, and tests a version-1 decode. The draft's version 1 was
+never implemented, and its previous-summary bytes were not defined; unsupported legacy variants
+are reported rather than guessed.
+
+### D-099 Finality and settlement are local observations
+**Decided.** With arbitrary message delays and no server, the first device can see A beat B's later
+run while another sees B's earlier, better run. A later merge chooses the earlier B run, but
+irreversible first-observed payouts cannot be made globally consistent afterward. The existing
+no-clawback ledger remains at-most-once per local match and round, and the ledger and XP update must
+be persisted atomically. Standings may change when late entries arrive. A device never silently
+reopens its final proposal: if an earlier proposal later wins, it shows a conflict and blocks normal
+rematch/settlement. The owner was unavailable when asked; this conservative behavior is used until
+overruled.
+
+### D-107 Progression XP uses three percentage factors and a single floor
+**Decided.** The review's printed divisor of 20,000 is incorrect for three factors expressed as
+percentages; it must be 1,000,000. Run events are summed before applying streak, featured and
+practice factors once. Deferred duel/podium bonuses are flat, as the review recommended, so they do
+not require reconstructing an earlier run's multiplier context. The original plan's award for every
+finished run remains, including zero-star runs; no new anti-idle threshold is imposed.
+
+### D-108 Streak dates use injected UTC and local offsets
+**Decided.** A completed run is attributed to its local Gregorian day at run end. The latest accepted
+UTC time and the highest credited local day never move backwards; a skipped local day within 48
+hours gets travel grace. A later run on an already credited day updates the last-run time but not
+the streak or bonus. A device clock can still be set forward repeatedly: no server means there is no
+trusted time source to prevent that.
+
+### D-109 Progression data is explicit and profile XP is a grow-only counter
+**Decided.** The checked-in progression catalogue lists every level, with placeholder cosmetic IDs
+and no featured songs until content exists. Five defaults sit outside the configured unlock counts.
+The profile's stable ID is separate from per-install XP counter IDs; joins take counter maxima and
+unlock unions, then derive the level and earned rewards. This keeps future sync mergeable without
+claiming that v1 already syncs.
+
+### D-110 Nicknames and match enum values have explicit boundaries
+**Decided.** An empty or whitespace-only nickname cannot identify a player, and invisible
+bidirectional controls can spoof a card. Nicknames are nonempty, NFC-normalised and reject the
+specified bidi controls; decoding reports when it substitutes the existing "Player" fallback.
+Version-2 enum bytes are fixed for the one current part and four difficulties, and roster sizes are
+bounded by the supported group size.
+
+### D-111 Previous-round summaries identify their chart
+**Decided.** A previous-round score cannot be checked against a ceiling or note count without
+knowing which chart produced it. Version 2 carries the previous chart identity alongside its short
+entries; the flag is absent exactly when the summary is empty. The resulting conservative maximum
+still fits both the 1,024-byte duel limit and the 4,096-character URL limit.
+
+### D-112 Match URLs have one canonical form per transport
+**Decided.** The `data:` form carries the unpadded base64url as plain text; the HTTPS forms use an
+explicitly configured lowercase ASCII host and a fixed path. Strict host, length and encoding checks
+avoid treating unrelated links or alternate spellings as match payloads. Which form Messages actually
+preserves remains a device-spike result.
+
+### D-113 A duel has no close timestamp
+**Decided.** Only a group round has an early-close rule. A duel payload with `closedAt` set is
+invalid rather than silently ignoring a field that could imply a different final result.
+
+### D-114 Settlement returns one atomic persistence value
+**Decided.** A crash between separate writes of the XP credit and the paid-round ledger could either
+duplicate or lose a bonus. The pure settlement transition updates a combined profile-and-ledger
+value only after both changes succeed. The app must persist that value atomically before presenting
+the award; disk persistence itself is Phase 6 work.
+
+### D-115 Pending drafts and re-posts are explicit in routing
+**Decided.** A pending draft cannot confirm a result even if it contains enough entries to look
+final. A previously finalized winner changing takes precedence as a conflict. Re-post is an
+independent offer, so a final results screen can still repair an older bubble.
+
+### D-116 Attempts are counted before play and have an explicit cap
+**Decided.** Retrying after a crash must not erase the attempt count shown on the card. The
+per-match, per-round counter is incremented before starting the run and capped at `match.maxTries`;
+the app must persist it before play and report when the cap is reached.
+
+### D-117 Simulator skill profiles are seeded integer approximations
+**Decided.** To make runs reproducible without floating-point differences, the bot simulator uses a
+sum of twelve 16-bit uniform draws as a bounded approximation to Gaussian timing error. Timing
+deviations, miss rates, burst rates, tap duration and masher periods are `GameConfig.simulation`
+values. All bots omit Hype for a comparable baseline. These starting profiles are not claims about
+real players.
+
+### D-118 A changed finalized proposal remains a conflict after settlement
+**Decided.** Checking the paid ledger first hid a changed proposal behind "already settled". A
+changed first-final descriptor takes precedence, while the existing ledger and XP remain unchanged.
+This keeps the settlement result consistent with the router's conflict screen.
+
+### D-119 Match finality and settlement need one durable Phase 4 transaction
+**Decided.** Phase 4 awards XP, but the original task outline deferred the profile store to Phase 6.
+Phase 4 must first persist joined fragments, the first-final descriptor, profile and ledger together
+before showing final results or an award; Phase 6 extends that store. This preserves the local
+no-reopen and at-most-once rules across crashes. There is no global exactly-once payout guarantee:
+first-observed standings can differ, and future profile sync must also reconcile settlement records.
+
+### D-120 Allow an existing full app bundle identifier
+**Decided; default renamed by D-121.** A registered app ID need not end in `.Riff`. `RIFF_APP_BUNDLE_IDENTIFIER` defaults
+to `<prefix>.Riff` but can be overridden locally; the extension derives its identifier from the
+same full app ID. This preserves existing defaults and keeps both signing identifiers consistent.
+
+### D-121 Rename the project to iMessageRiff
+**Decided by the owner.** The app display name, project, source folders, core package and developer
+tools use iMessageRiff instead of the former Riff code name. Existing full bundle IDs and signing
+settings remain unchanged; `RIFF_*` settings and environment variables keep their existing names for
+compatibility. Versioned chart, progression and message-format identifiers retain their existing
+bytes so the rename does not invalidate fixtures or previously encoded data. App Store availability
+and trademark clearance have not been verified.

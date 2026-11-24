@@ -1,6 +1,6 @@
-# XcodeGen spec. Run `xcodegen generate` (or scripts/bootstrap.sh) to create Riff.xcodeproj, which is
+# XcodeGen spec. Run `xcodegen generate` (or scripts/bootstrap.sh) to create iMessageRiff.xcodeproj, which is
 # generated and never committed. Identifiers and the signing team come from Config/Base.xcconfig.
-name: Riff
+name: iMessageRiff
 
 options:
   deploymentTarget:
@@ -13,8 +13,8 @@ configFiles:
   Release: Config/Base.xcconfig
 
 packages:
-  RiffCore:
-    path: Packages/RiffCore
+  iMessageRiffCore:
+    path: Packages/iMessageRiffCore
 
 settings:
   base:
@@ -24,44 +24,44 @@ settings:
 
 targets:
   # The iMessage app itself: a stub with no code that only carries the extension and the store icon.
-  Riff:
+  iMessageRiff:
     type: application.messages
     platform: iOS
     sources:
-      - path: RiffApp
+      - path: iMessageRiffApp
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: $(RIFF_BUNDLE_PREFIX).Riff
-        INFOPLIST_FILE: RiffApp/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: $(RIFF_APP_BUNDLE_IDENTIFIER)
+        INFOPLIST_FILE: iMessageRiffApp/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
-      - target: RiffMessages
+      - target: iMessageRiffMessages
 
   # Everything the player sees runs here.
-  RiffMessages:
+  iMessageRiffMessages:
     type: app-extension.messages
     platform: iOS
     sources:
-      - path: RiffMessages
+      - path: iMessageRiffMessages
     settings:
       base:
         # The extension id must start with the app id.
-        PRODUCT_BUNDLE_IDENTIFIER: $(RIFF_BUNDLE_PREFIX).Riff.MessagesExtension
-        INFOPLIST_FILE: RiffMessages/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: $(RIFF_APP_BUNDLE_IDENTIFIER).MessagesExtension
+        INFOPLIST_FILE: iMessageRiffMessages/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: iMessage App Icon
         # UI code is main-actor by default (Xcode 26 and later; older Xcodes ignore these two).
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         SWIFT_APPROACHABLE_CONCURRENCY: "YES"
     dependencies:
-      - package: RiffCore
-        product: RiffCore
+      - package: iMessageRiffCore
+        product: iMessageRiffCore
 
 schemes:
-  Riff:
+  iMessageRiff:
     build:
       targets:
-        Riff: all
-        RiffMessages: all
+        iMessageRiff: all
+        iMessageRiffMessages: all
     run:
       config: Debug
     archive:

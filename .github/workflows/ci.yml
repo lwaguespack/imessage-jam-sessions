@@ -17,17 +17,29 @@ permissions:
 
 jobs:
   core-linux:
-    name: RiffCore (Linux)
+    name: iMessageRiffCore (Linux)
     runs-on: ubuntu-24.04
     container: swift:6.2-noble
     steps:
       - uses: actions/checkout@v5
       - name: Swift formatting
-        run: swift format lint --strict --recursive Packages RiffMessages
+        run: swift format lint --strict --recursive Packages iMessageRiffMessages Tests
       - name: Build
-        run: swift build --package-path Packages/RiffCore
+        run: swift build --package-path Packages/iMessageRiffCore
       - name: Test
-        run: swift test --package-path Packages/RiffCore
+        run: swift test --package-path Packages/iMessageRiffCore
+      - name: Payload inspect golden vectors
+        run: scripts/test-payload-cli.sh
+      - name: Seeded simulator golden run
+        run: scripts/test-simulate-cli.sh
+      - name: Example chart
+        run: swift run --package-path Packages/iMessageRiffCore imessageriffcli chart check Packages/iMessageRiffCore/Tests/iMessageRiffCoreTests/Fixtures/example-medium.json
+      - name: Install Python for the coverage report
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3
+      - name: Phase 1 coverage gate
+        run: scripts/coverage-core.sh --min 90 Engine Match Progression
       - name: Tunables snapshot is current
         run: scripts/sync-config-snapshot.sh --check
 
@@ -59,14 +71,18 @@ jobs:
         run: brew install xcodegen
       - name: Generate the project
         run: xcodegen generate
+      - name: Spike diagnostic tests
+        run: scripts/test-spike.sh
       - name: Build for the simulator (unsigned)
         run: |
           set -o pipefail
-          xcodebuild -project Riff.xcodeproj -scheme Riff -configuration Debug \
+          xcodebuild -project iMessageRiff.xcodeproj -scheme iMessageRiff -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build 2>&1 | tee xcodebuild.log | xcbeautify
-      - name: RiffCore tests (macOS)
-        run: swift test --package-path Packages/RiffCore
+      - name: App and extension names and bundle identifiers
+        run: scripts/test-bundle-ids.sh --built
+      - name: iMessageRiffCore tests (macOS)
+        run: swift test --package-path Packages/iMessageRiffCore
       - name: Keep the build log
         if: failure()
         uses: actions/upload-artifact@v4

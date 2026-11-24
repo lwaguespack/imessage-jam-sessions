@@ -4,11 +4,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-snapshot="$repo_root/tools/riff_tools/data/gameconfig.json"
+snapshot="$repo_root/tools/imessageriff_tools/data/gameconfig.json"
 fresh="$(mktemp)"
 trap 'rm -f "$fresh"' EXIT
 
-"$repo_root/scripts/swiftw" run --package-path "$repo_root/Packages/RiffCore" riffcli config >"$fresh"
+"$repo_root/scripts/swiftw" run --package-path "$repo_root/Packages/iMessageRiffCore" imessageriffcli config >"$fresh"
 
 if [[ "${1:-}" == "--check" ]]; then
     if ! diff -u "$snapshot" "$fresh"; then

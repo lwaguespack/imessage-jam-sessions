@@ -9,8 +9,8 @@ in what order, and how to tell it is done. The specs in [../specs/](../specs/) h
 | Phase | Document | Status |
 | --- | --- | --- |
 | 0 Foundations | Below | Done except the owner's steps |
-| S Device spike | [phase-s-device-spike.md](phase-s-device-spike.md) | Outlined; needs the spike build, then devices |
-| 1 Core rules | [phase-1-core-rules.md](phase-1-core-rules.md) | Outlined to file level; ready to start |
+| S Device spike | [phase-s-device-spike.md](phase-s-device-spike.md) | Diagnostic build implemented; needs signing, TestFlight and device reports |
+| 1 Core rules | [phase-1-core-rules.md](phase-1-core-rules.md) | Done: gate and architecture review passed; device spike still gates later phases |
 | 2 Audio and clock | [phase-2-audio-clock.md](phase-2-audio-clock.md) | Outlined; starts after spike S1 |
 | 3 to 8 | [phases-3-to-8.md](phases-3-to-8.md) | Outlined at task level; detailed when reached |
 
@@ -38,20 +38,29 @@ Mac or device, and the spike needs only a small throwaway build.
 
 | Task | Status |
 | --- | --- |
-| P0.2 Repository, `project.yml`, app stub, Messages extension, `RiffCore` package, tests | Done. CI generates the project and builds it for the simulator on a macOS runner |
+| P0.2 Repository, `project.yml`, app stub, Messages extension, `iMessageRiffCore` package, tests | Done. CI generates the project and builds it for the simulator on a macOS runner |
 | P0.3 README, formatter config, one script that runs every check | Done (`scripts/check.sh`) |
 | Icon set with every slot filled, privacy manifest, export-compliance flag | Done with placeholders (D-028) |
 | P0.1 Bundle id prefix and Team ID in `Config/Local.xcconfig` | **Owner** |
 | App Store Connect record; first TestFlight build | **Owner**, before Phase S |
-| Run the Riff scheme on your iPhone and open it in Messages | **Owner**: this is the half of the Phase 0 gate CI cannot check |
+| Run the iMessageRiff scheme on your iPhone and open it in Messages | **Owner**: this is the half of the Phase 0 gate CI cannot check |
 
 ## What happens next
 
-1. **Finish the review** (D-082): the build/architecture and content/UX/legal areas, and the skeptic
-   pass on the gameplay, match and audio findings. Until then the specs are marked draft 1.
-2. **Phase 1, task P1.0**: bring `GameConfig` in line with the decisions, then the engine.
-3. **Spike build** for Phase S, in parallel, so it is ready when the devices are.
-4. **Owner decisions** in the table at the top of DECISIONS.md. None blocks work today: each has a
+The order the owner set for the current work:
+
+1. **Phase 1, tasks P1.0 to P1.2**: done. The owner reviews them before the next item starts.
+2. **Spike build** for Phase S: implemented; the owner runs the device protocols after signing and
+   TestFlight setup.
+3. **Challenge GAME_RULES.md**, whose findings had no skeptic pass: done (draft 2, D-092 to D-095).
+   P1.3 to P1.6 are done.
+4. **Challenge MATCH_PROTOCOL.md**: the test-only merge model and conversation simulator exposed
+   lost entries and inconsistent first-observed finality; draft 2 records the proposed corrections
+   (D-097 to D-099). P1.7 to P1.9 and the Phase 1 gate are done.
+5. **Build and architecture review** (D-082): the Phase 1 follow-up is recorded in PLAN_REVIEW.md,
+   with fixes D-118 and D-119. The content, UX and legal review waits for Phase 5 planning. The audio
+   findings still have no skeptic pass.
+6. **Owner decisions** in the table at the top of DECISIONS.md. None blocks work today: each has a
    default, and each is one configuration value. Music sourcing (D-101) has the longest lead time.
 
 ## How each phase document is organised

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: scripts/bootstrap.sh   One-time setup on a Mac: installs XcodeGen if needed and generates Riff.xcodeproj.
+# Usage: scripts/bootstrap.sh   One-time setup on a Mac: installs XcodeGen if needed and generates iMessageRiff.xcodeproj.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -24,7 +24,8 @@ if ! command -v xcodegen >/dev/null 2>&1; then
         exit 1
     fi
     echo "bootstrap: installing XcodeGen with Homebrew"
-    brew install xcodegen
+    # Otherwise the install can run Homebrew's periodic cleanup, which removes unrelated packages.
+    HOMEBREW_NO_INSTALL_CLEANUP=1 brew install xcodegen
 fi
 
 if [[ ! -f Config/Local.xcconfig ]]; then
@@ -37,9 +38,10 @@ xcodegen generate
 cat <<'NEXT'
 
 Next steps
-  1. Edit Config/Local.xcconfig (your bundle prefix and Team ID), then run scripts/bootstrap.sh again.
-  2. open Riff.xcodeproj
-  3. Choose the Riff scheme and an iPhone simulator or your iPhone, then Run.
+  1. Edit Config/Local.xcconfig (your bundle prefix, Team ID and optional full app ID).
+     Then run scripts/bootstrap.sh again.
+  2. open iMessageRiff.xcodeproj
+  3. Choose the iMessageRiff scheme and an iPhone simulator or your iPhone, then Run.
      If Xcode asks which app to run, pick Messages.
-  4. In Messages, open a conversation, tap +, then More, and choose Riff.
+  4. In Messages, open a conversation, tap +, then More, and choose iMessageRiff.
 NEXT

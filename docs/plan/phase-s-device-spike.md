@@ -16,19 +16,54 @@ this phase gates Phases 2, 3 and 4.
 
 ## The spike build
 
-A debug-only "Spike" list in the extension, one screen per task, each with a **Copy report** button
-that puts a text block on the clipboard. Paste each report back; those reports are the deliverable.
+A "Device spike" list in the extension is available in both Debug and Release, because TestFlight
+uses the Release archive. Each screen has a **Copy report** button. Reports are appended to a local
+file as events occur, so reopening the extension after a termination retains earlier measurements.
+Paste the reports back, together with the observations that the app cannot measure; those are the
+deliverable. Participant identifiers appear in the report: share it only with people allowed to see
+them. The spike sends synthetic payloads only, never nicknames or real scores. The test HTTPS URLs
+use `riff.invalid`, which cannot serve a fallback page.
 
-| File (under `RiffMessages/Spike/`) | Purpose |
+| File (under `iMessageRiffMessages/Spike/`) | Purpose |
 | --- | --- |
 | `SpikeMenuView.swift` | List of the tasks below |
 | `SpikeReport.swift` | Collects lines; adds device model, iOS version, app version, date |
-| `AudioSpike.swift`, `AudioSpikeView.swift` | S1 |
-| `MessagesSpike.swift`, `MessagesSpikeView.swift` | S2 |
-| `RenderSpikeScene.swift`, `RenderSpikeView.swift` | S3, S4, S6 |
+| `AudioSpike*.swift`, `AudioSpikeView.swift`, `Resources/` | S1; two original 90-second AAC tones |
+| `MessagesSpike*.swift`, `SpikePayload.swift` | S2; checksum-verified synthetic messages |
+| `RenderSpikeScene.swift`, `RenderSpikeModel.swift`, `RenderSpikeView.swift`, `SpikeMemory.swift` | S3, S4, S6 |
 | `TouchSpikeView.swift` | S5 |
 
 The spike code is deleted when Phase 3 starts. Nothing in it is reused without review.
+
+### Owner checklist
+
+1. Put your bundle prefix and Team ID in the ignored `Config/Local.xcconfig`, then run
+   `scripts/bootstrap.sh`. If your registered app ID differs from `<prefix>.iMessageRiff`, set
+   `RIFF_APP_BUNDLE_IDENTIFIER` to the full ID in that file. Do not commit the local settings.
+2. In Xcode, select the `iMessageRiff` scheme and an iOS device destination. Archive the Release build,
+   upload it to your App Store Connect record, and install it through TestFlight. The unsigned
+   simulator and archive checks do not replace signing or this step.
+3. Open a Messages conversation, open iMessageRiff from the app drawer, select **Device spike**, and expand
+   the sheet when a protocol asks for expanded view.
+4. On **S1 Audio**, inspect the stems, run the 90-second and 3-minute tests, and run tap-along three
+   times per route. Add observations about silence mode, interruptions and the other player's music.
+5. On **S2 Messages**, repeat each URL form with both sizes. Use **Capture selected bubble as base**
+   before the concurrency test; use **Inspect last created message** to inspect a staged draft. To
+   test the product sheet, enter the numeric ID of an existing App Store product. Note what each
+   recipient and VoiceOver shows; the HTTPS test domain is deliberately nonfunctional. Compare the
+   sender's and receiver's URL byte counts and SHA-256 values to check for exact transport.
+6. On **Rendering, haptics and memory**, run a 60-second frame sample, compare both strike-line
+   positions, and measure memory with both stems playing. The optional 10 MiB allocation button
+   can terminate the extension if used repeatedly.
+7. On **S5 Touch**, reset and run the complete touch protocol separately in Scene and UIKit modes.
+   Record any unintended collapse and whether haptics were actually felt.
+8. Use **Copy report** and paste the output back with the manual observations. Copy it **before**
+   reinstalling the app: reinstalling removes the extension's local report. Repeat on the other
+   devices and Apple IDs listed above.
+
+The report stores frame checkpoints and memory readings as well as a final 60-second summary.
+Frame drops are estimated from SpriteKit update intervals against the display's reported maximum;
+they are not a direct GPU render-time measurement. Logging and the simulator can affect timings.
 
 ## S1 Audio session and clock
 
@@ -56,6 +91,11 @@ Runs inside the extension, not a test app. (D-030, D-031, D-032, D-041)
 | S2.7 Bubble text | Captions with nicknames and with the undocumented participant-name placeholder; `summaryText`; `accessibilityLabel` with VoiceOver | What renders for contacts and non-contacts (D-022) |
 | S2.8 Store sheet | Present the in-app App Store product sheet from the extension | Works or not (D-023) |
 
+Also repeat S2.2 after disabling and re-enabling the extension, and after reinstalling it. Compare the
+roster count in a group with a member who has not installed the app. In S2.5, capture the same base
+bubble on both receivers before either sends; the spike records the synthetic entries in every
+selected or received payload, without assuming which bubble Messages retains.
+
 ## S3 Rendering and layout
 
 200 pooled sprites on a perspective highway. Record frame time statistics at the device's top
@@ -81,11 +121,18 @@ Log every cancelled touch and every presentation change.
 input view, on the oldest and the newest iOS version you have. If it fails, the fallback (taps only,
 no holds) is decided before any chart is written.
 
+For each touch, also record the difference between the touch timestamp and its delivery to the
+extension. This measures delivery delay in the app, not physical touch-to-photon latency.
+
 ## S6 Memory
 
 Record the extension's memory footprint with the highway running and two 90 s stems streaming, and
 the level at which the system ends the extension if you can reach it. This sets the memory budget in
 the plan's performance table.
+
+Background and reopen the extension during a run. Record whether the same process resumes or a new
+process starts, and compare the retained report. A missing shutdown event alone does not establish
+why a process ended.
 
 ## Done when
 
