@@ -9,7 +9,7 @@ import wave
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DESTINATION = ROOT / "RiffMessages" / "Spike" / "Resources"
+DESTINATION = ROOT / "iMessageRiffMessages" / "Spike" / "Resources"
 RATE = 48_000
 FRAMES = RATE * 90
 BLOCK = 4_096

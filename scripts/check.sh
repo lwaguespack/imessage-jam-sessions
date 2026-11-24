@@ -18,11 +18,11 @@ step() {
     fi
 }
 
-step "Swift formatting" scripts/swiftw format lint --strict --recursive Packages RiffMessages Tests
-step "RiffCore tests" scripts/test-core.sh
+step "Swift formatting" scripts/swiftw format lint --strict --recursive Packages iMessageRiffMessages Tests
+step "iMessageRiffCore tests" scripts/test-core.sh
 step "Tunables snapshot is current" scripts/sync-config-snapshot.sh --check
-step "Example chart is valid" scripts/swiftw run --package-path Packages/RiffCore riffcli chart check \
-    Packages/RiffCore/Tests/RiffCoreTests/Fixtures/example-medium.json
+step "Example chart is valid" scripts/swiftw run --package-path Packages/iMessageRiffCore imessageriffcli chart check \
+    Packages/iMessageRiffCore/Tests/iMessageRiffCoreTests/Fixtures/example-medium.json
 step "Payload inspect golden vectors" scripts/test-payload-cli.sh
 step "Seeded simulator golden run" scripts/test-simulate-cli.sh
 step "Python tools" scripts/test-tools.sh
@@ -31,7 +31,7 @@ step "Icon set is complete" python3 scripts/make-placeholder-icons.py --check
 if [[ "$(uname -s)" == Darwin ]]; then
     step "Spike diagnostic tests" scripts/test-spike.sh
     step "iOS Simulator build" scripts/build-ios-simulator.sh
-    step "App and extension bundle IDs" scripts/test-bundle-ids.sh
+    step "App and extension names and bundle IDs" scripts/test-bundle-ids.sh --built
 else
     echo "SKIP  iOS Simulator build (requires macOS and Xcode; CI builds it on macOS)"
 fi

@@ -13,7 +13,7 @@ fi
 test_binary="$(mktemp -t riff-spike-tests)"
 trap 'rm -f "$test_binary"' EXIT
 
-xcrun swiftc -swift-version 6 -parse-as-library RiffMessages/Spike/SpikePayload.swift \
-    RiffMessages/Spike/SpikeStatistics.swift \
+xcrun swiftc -swift-version 6 -parse-as-library iMessageRiffMessages/Spike/SpikePayload.swift \
+    iMessageRiffMessages/Spike/SpikeStatistics.swift \
     Tests/SpikePayloadTests.swift -o "$test_binary"
 "$test_binary"

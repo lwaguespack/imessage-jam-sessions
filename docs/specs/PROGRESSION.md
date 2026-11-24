@@ -1,7 +1,7 @@
 # Progression rules
 
 Phase 1's pure, integer progression rules. Callers supply timestamps, UTC offsets, install IDs and
-the catalogue; `RiffCore` never reads a clock, time zone or random source.
+the catalogue; `iMessageRiffCore` never reads a clock, time zone or random source.
 
 ## 1. Run XP
 
@@ -72,7 +72,7 @@ catalogue's schedule is empty until songs are bundled. (D-074, D-109)
 
 ## 4. Unlocks and profile
 
-`RiffMessages/Resources/progression.json` contains five default cosmetic IDs outside the counts in
+`iMessageRiffMessages/Resources/progression.json` contains five default cosmetic IDs outside the counts in
 `GameConfig.unlocks`, an explicit reward list for every level 1 through `maxLevel`, and the featured
 schedule. Levels 2 through 10 each have at least one reward. Every non-default reward ID appears once
 and belongs to one of the configured categories and counts. IDs in the current file are placeholders,

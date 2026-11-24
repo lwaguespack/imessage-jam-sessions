@@ -1,4 +1,4 @@
-# Phase 1: core rules (RiffCore)
+# Phase 1: core rules (iMessageRiffCore)
 
 Every rule that decides a score, a turn or a level, as a pure Swift package with tests. Nothing in
 this phase needs a Mac or a device: it builds and tests on Linux (`scripts/test-core.sh`) and on
@@ -30,8 +30,8 @@ flowchart LR
 P1.7 can run alongside the engine tasks. P1.8 needs only the score ceiling from P1.6, through a small
 lookup protocol, so most of it can also run alongside.
 
-All paths below are under `Packages/RiffCore/Sources/RiffCore/` unless they start with `Tests/` or
-`riffcli/`.
+All paths below are under `Packages/iMessageRiffCore/Sources/iMessageRiffCore/` unless they start with `Tests/` or
+`imessageriffcli/`.
 
 ## P1.0 Apply the decided values
 
@@ -43,7 +43,7 @@ All paths below are under `Packages/RiffCore/Sources/RiffCore/` unless they star
   values is pinned to the version, so changing a value without bumping it fails. The digest needs
   `Crypto/SHA256.swift`, so that file and its tests land here, not in P1.2. (D-085)
 - Run `scripts/sync-config-snapshot.sh`; update `tools/tests` for the changed values.
-- Add `scripts/coverage-core.sh` (line coverage per file for `Sources/RiffCore`, fails under a
+- Add `scripts/coverage-core.sh` (line coverage per file for `Sources/iMessageRiffCore`, fails under a
   threshold); the phase gate uses it.
 
 **Done when:** `scripts/check.sh` passes and the snapshot is committed.
@@ -76,10 +76,10 @@ songs cannot pass the Hype rules (D-090).
 | `Chart/ChartComputation.swift` | The computed values, and which stored ones are stale |
 | `Crypto/HMACSHA256.swift` | Pure Swift (no CryptoKit on Linux), built on the `Crypto/SHA256.swift` from P1.0. Tested with the published RFC 4231 vectors; on Apple platforms a test compares against CryptoKit |
 | `Chart/ChartHash.swift`, `Support/Hex.swift` | The canonical string and hash (CHART_FORMAT.md section 2) |
-| `riffcli/Commands/ChartCommand.swift` | `riffcli chart check <file>` and `riffcli chart compute <file>` |
+| `imessageriffcli/Commands/ChartCommand.swift` | `imessageriffcli chart check <file>` and `imessageriffcli chart compute <file>` |
 
 Tests: one failing change per validation rule, each made to an example chart that a builder in the
-test target produces and that is committed as `Tests/RiffCoreTests/Fixtures/example-medium.json`; hash
+test target produces and that is committed as `Tests/iMessageRiffCoreTests/Fixtures/example-medium.json`; hash
 stability; the hash ignores `sections` and changes with any note.
 
 Follow-up:
@@ -136,7 +136,7 @@ ordering; late input at and before a committed watermark; pause sends releases; 
 arithmetic. The example's perfect-run score is independently checked at 62,887 points.
 
 `Results/RunSummary.swift`, `Results/Accuracy.swift`, `Results/StarRating.swift`,
-`Results/PerfectRun.swift` (base score, ceiling, star cut-offs), wired into `riffcli chart compute`.
+`Results/PerfectRun.swift` (base score, ceiling, star cut-offs), wired into `imessageriffcli chart compute`.
 
 Tests: accuracy rounding; upward-rounded star boundaries; Gold and penalised ghosts before the first
 hit; early Perfects can exceed base without Hype but not the ceiling; the perfect-run bot equals the
@@ -177,7 +177,7 @@ persist store fragments and the combined settlement/profile value atomically in 
 | `Match/Settlement.swift` | The ledger rule for bonus XP |
 | `Match/MatchRouter.swift`, `Match/MatchSubmission.swift`, `Match/MatchAttempts.swift` | Routing, submission states and capped attempt counts |
 | `Match/MatchActions.swift`, `Match/MatchStore.swift` | Submission, close and rematch updates; lossless in-memory fragment storage |
-| `riffcli/Commands/PayloadCommand.swift` | `riffcli payload inspect <url>` |
+| `imessageriffcli/Commands/PayloadCommand.swift` | `imessageriffcli payload inspect <url>` |
 
 Tests: as listed in MATCH_PROTOCOL.md section 14.
 
@@ -193,7 +193,7 @@ also exercise the implementation. This does not claim that the sample is a real-
 | --- | --- |
 | `Support/SplitMix64.swift` | The seeded generator |
 | `Sim/Bots.swift` | Perfect, skill-level, clustered and masher bots (GAME_RULES section 10) |
-| `riffcli/Commands/SimulateCommand.swift` | `riffcli simulate <chart> --seed N --runs N`: star distribution per bot |
+| `imessageriffcli/Commands/SimulateCommand.swift` | `imessageriffcli simulate <chart> --seed N --runs N`: star distribution per bot |
 | `Tests/.../ConversationSimulatorTests.swift` | Several devices, random orderings, duplicates, drops, reinstall, second device |
 | `Tests/.../Fixtures/` | Golden run logs, simulator output and payload vectors |
 
@@ -208,7 +208,7 @@ also exercise the implementation. This does not claim that the sample is a real-
 - The conversation simulator converges for 1,000 seeds with no lost entry and one bonus per eligible
   local ledger after convergence; it does not prove global agreement on earlier payouts (D-099).
 - The masher bot never earns a Full Combo on the example chart and scores below the casual bot.
-- `riffcli chart check` passes on the example chart, and `riffcli payload inspect` round-trips the
+- `imessageriffcli chart check` passes on the example chart, and `imessageriffcli payload inspect` round-trips the
   golden vectors.
 
 ## What this phase needs from the owner

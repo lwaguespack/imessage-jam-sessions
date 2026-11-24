@@ -3,7 +3,7 @@
 How a duel or group round is represented, merged, sent in a message, decoded, ranked and settled.
 There is no server: every shared fact travels in a message URL, and every device keeps its own copy.
 
-**Status: draft 2, implemented in `RiffCore`.** The draft 1 merge and conversation tests found lost entries,
+**Status: draft 2, implemented in `iMessageRiffCore`.** The draft 1 merge and conversation tests found lost entries,
 non-associative history selection and an unresolved tie. Decisions D-097 to D-099 specify the
 corrections and their limits. The version-2 codec, routing, ranking, finality and settlement are
 implemented as pure rules; device behavior and disk persistence remain unverified. Section 13 lists open and device questions.
@@ -257,7 +257,7 @@ store. Selection in Messages is sticky, so every match screen has a Home action 
 it clears only when a different message is selected. Presentation style changes the chosen screen's
 layout, not its logical route. A pending draft shows Send your score even if its contents look final;
 a final-winner conflict takes precedence. Re-post is a separate offer on any applicable screen,
-including Results. The function lives in `RiffCore`. (D-021, D-115)
+including Results. The function lives in `iMessageRiffCore`. (D-021, D-115)
 
 | Condition | Screen |
 | --- | --- |

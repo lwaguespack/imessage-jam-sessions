@@ -1,6 +1,6 @@
 # Game rules
 
-The exact rules the engine in `RiffCore` implements: time, judging, streaks, holds, Hype, scoring and
+The exact rules the engine in `iMessageRiffCore` implements: time, judging, streaks, holds, Hype, scoring and
 results. Two engineers working from this document must produce identical scores for identical input.
 
 **Status: draft 2.** Built from PLAN.md section 4 and the gameplay review (GAME-1 to GAME-17,
@@ -195,14 +195,14 @@ minimum `16R`. (D-055)
    `floor((10000 * perfects + 8000 * greats + 5000 * goods) / noteCount)`. (D-061)
 3. **Base score** is the score of the perfect run: every note Perfect at offset 0, every hold held to
    its end, no Hype, no ghost taps. Notes on one tick are scored in lane order, and sustain from that
-   tick uses the new streak. `riffcli` computes it and stores it in the chart; a golden test requires
+   tick uses the new streak. `imessageriffcli` computes it and stores it in the chart; a golden test requires
    the engine's perfect-run bot to equal it exactly.
 4. **Score ceiling** (`maxScore`), used to reject impossible scores: every note Perfect at the top
    multiplier with Hype, plus every hold tick doubled:
    `perfectPoints * maxStreakMultiplier * hypeMultiplier * noteCount + floor(sustainPointsPerBeat * maxStreakMultiplier * hypeMultiplier * totalHoldTicks / resolution)`.
    This is a safe upper bound, not a reachable score or a multiple of base score. A perfect run at
    early offsets can score above base even without Hype. A tighter bound remains open (section 13).
-5. **Stars.** Each chart stores five absolute cut-off scores, computed by `riffcli` as shares of base
+5. **Stars.** Each chart stores five absolute cut-off scores, computed by `imessageriffcli` as shares of base
    score from `GameConfig.stars.sharesPercent[d]` (starting at 10, 25, 45, 65, 85 for every
    difficulty). Each stored cutoff is `ceil(baseScore * share / 100)`. Stars are the number of
    cutoffs reached, equivalently `score * 100 >= baseScore * share`. Hype can push a score above
@@ -247,7 +247,7 @@ changing such a rule still needs the bump. (D-085, D-092)
 
 ## 10. Bots and the simulator
 
-`RiffCore` ships a seeded generator (SplitMix64); every bot takes a seed and reports it. `riffcli
+`iMessageRiffCore` ships a seeded generator (SplitMix64); every bot takes a seed and reports it. `imessageriffcli
 simulate` runs bots over a chart and prints the star distribution. (D-007, D-009)
 
 | Bot | Behaviour |

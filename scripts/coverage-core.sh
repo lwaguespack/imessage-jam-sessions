@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Usage: scripts/coverage-core.sh [--min PERCENT DIR...]
-# Runs the RiffCore tests with coverage and prints line coverage for each file under Sources/RiffCore.
-# With --min, fails unless each DIR (relative to Sources/RiffCore, for example Engine) has at least PERCENT of its
+# Runs the iMessageRiffCore tests with coverage and prints line coverage for each file under Sources/iMessageRiffCore.
+# With --min, fails unless each DIR (relative to Sources/iMessageRiffCore, for example Engine) has at least PERCENT of its
 # lines covered, counted over the whole directory. A directory with no measured lines fails.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-package="$repo_root/Packages/RiffCore"
+package="$repo_root/Packages/iMessageRiffCore"
 
 if [[ $# -gt 0 ]] && { [[ "$1" != "--min" || $# -lt 3 ]] || ! [[ "$2" =~ ^[0-9]+$ ]]; }; then
     echo "usage: scripts/coverage-core.sh [--min PERCENT DIR...]" >&2
@@ -28,14 +28,14 @@ directories = [name.strip("/") for name in options[2:]]
 with open(export_path, encoding="utf-8") as handle:
     export = json.load(handle)
 
-marker = "/Sources/RiffCore/"
+marker = "/Sources/iMessageRiffCore/"
 files = {}
 for entry in export["data"][0]["files"]:
     if marker in entry["filename"]:
         lines = entry["summary"]["lines"]
         files[entry["filename"].split(marker, 1)[1]] = (lines["covered"], lines["count"])
 if not files:
-    sys.exit("coverage-core: the coverage export lists no file under Sources/RiffCore")
+    sys.exit("coverage-core: the coverage export lists no file under Sources/iMessageRiffCore")
 
 
 def row(name, covered, count):
@@ -45,7 +45,7 @@ def row(name, covered, count):
 
 for name in sorted(files):
     print(row(name, *files[name]))
-print(row("all of Sources/RiffCore", sum(c for c, _ in files.values()), sum(n for _, n in files.values())))
+print(row("all of Sources/iMessageRiffCore", sum(c for c, _ in files.values()), sum(n for _, n in files.values())))
 print("Files with no executable lines are not listed.")
 
 failed = False

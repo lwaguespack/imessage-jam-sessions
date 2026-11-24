@@ -3,7 +3,7 @@
 // A prefix you own, for example com.yourname
 RIFF_BUNDLE_PREFIX = com.example
 
-// Optional: use an existing full app bundle ID instead of <prefix>.Riff.
+// Optional: use an existing full app bundle ID instead of <prefix>.iMessageRiff.
 // RIFF_APP_BUNDLE_IDENTIFIER = com.example.ExistingApp
 
 // The 10-character Team ID from developer.apple.com (Membership details)

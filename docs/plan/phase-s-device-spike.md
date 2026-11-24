@@ -24,7 +24,7 @@ deliverable. Participant identifiers appear in the report: share it only with pe
 them. The spike sends synthetic payloads only, never nicknames or real scores. The test HTTPS URLs
 use `riff.invalid`, which cannot serve a fallback page.
 
-| File (under `RiffMessages/Spike/`) | Purpose |
+| File (under `iMessageRiffMessages/Spike/`) | Purpose |
 | --- | --- |
 | `SpikeMenuView.swift` | List of the tasks below |
 | `SpikeReport.swift` | Collects lines; adds device model, iOS version, app version, date |
@@ -38,12 +38,12 @@ The spike code is deleted when Phase 3 starts. Nothing in it is reused without r
 ### Owner checklist
 
 1. Put your bundle prefix and Team ID in the ignored `Config/Local.xcconfig`, then run
-   `scripts/bootstrap.sh`. If your registered app ID differs from `<prefix>.Riff`, set
+   `scripts/bootstrap.sh`. If your registered app ID differs from `<prefix>.iMessageRiff`, set
    `RIFF_APP_BUNDLE_IDENTIFIER` to the full ID in that file. Do not commit the local settings.
-2. In Xcode, select the `Riff` scheme and an iOS device destination. Archive the Release build,
+2. In Xcode, select the `iMessageRiff` scheme and an iOS device destination. Archive the Release build,
    upload it to your App Store Connect record, and install it through TestFlight. The unsigned
    simulator and archive checks do not replace signing or this step.
-3. Open a Messages conversation, open Riff from the app drawer, select **Device spike**, and expand
+3. Open a Messages conversation, open iMessageRiff from the app drawer, select **Device spike**, and expand
    the sheet when a protocol asks for expanded view.
 4. On **S1 Audio**, inspect the stems, run the 90-second and 3-minute tests, and run tap-along three
    times per route. Add observations about silence mode, interruptions and the other player's music.

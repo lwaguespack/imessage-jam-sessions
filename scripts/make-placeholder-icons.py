@@ -32,8 +32,8 @@ MESSAGES_SLOTS = [
     ("universal", "32x24", 3, "ios"),
     ("ios-marketing", "1024x768", 1, "ios"),
 ]
-MESSAGES_SET = ROOT / "RiffMessages/Assets.xcassets/iMessage App Icon.stickersiconset"
-APP_SET = ROOT / "RiffApp/Assets.xcassets/AppIcon.appiconset"
+MESSAGES_SET = ROOT / "iMessageRiffMessages/Assets.xcassets/iMessage App Icon.stickersiconset"
+APP_SET = ROOT / "iMessageRiffApp/Assets.xcassets/AppIcon.appiconset"
 INFO = {"author": "xcode", "version": 1}
 
 

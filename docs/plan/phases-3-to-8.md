@@ -11,7 +11,7 @@ One song, start to finish, on a real iPhone.
 | Task | What | Changed by the review |
 | --- | --- | --- |
 | P3.1 Game screen | SpriteKit view hosted in SwiftUI | Guard is by view size, not orientation: pause and ask to rotate back when wider than tall or too short (D-026) |
-| P3.2 Highway scene | Projection, lanes, strike line, beat lines, pooled notes, hold trails | Layout from the game view's safe-area rectangle; strike-line position from spike S3 (D-064). Projection math in `RiffCore` so it is unit-tested |
+| P3.2 Highway scene | Projection, lanes, strike line, beat lines, pooled notes, hold trails | Layout from the game view's safe-area rectangle; strike-line position from spike S3 (D-064). Projection math in `iMessageRiffCore` so it is unit-tested |
 | P3.3 Input | Touches into the game session | A UIKit input view with its own gesture recognizer over the highway; blocks competing recognizers during a song; a cancelled touch is a release; columns sit above the home-indicator inset (D-025) |
 | P3.4 Effects and HUD | Sparks, judgement text, streak, score, Hype | Hit feedback immediate; miss feedback after the input guard (D-050) |
 | P3.5 Results screen | | Shows tries and ghost-tap count |
@@ -25,7 +25,7 @@ with zero cancelled touches in the S5 protocol.
 ## Phase 4: Messages integration
 
 Rules: [MATCH_PROTOCOL.md](../specs/MATCH_PROTOCOL.md). Most of the logic already exists in
-`RiffCore` from P1.8; this phase connects it to Messages.
+`iMessageRiffCore` from P1.8; this phase connects it to Messages.
 
 | Task | What | Changed by the review |
 | --- | --- | --- |
@@ -49,7 +49,7 @@ payouts different across devices (D-099). Restart and interrupted-write tests co
 the review area that did not run. Known changes so far:
 
 - Songs are 60 to 90 seconds (D-062).
-- `riffcli` replaces the Python `chartcheck`; Python keeps conversion, draft reduction and audio
+- `imessageriffcli` replaces the Python `chartcheck`; Python keeps conversion, draft reduction and audio
   generation (D-007).
 - Chart rules are numeric and enforced ([CHART_FORMAT.md](../specs/CHART_FORMAT.md) section 4), and
   every chart must pass the masher-bot rule (GAME_RULES section 10).
@@ -68,7 +68,7 @@ above: it can start now.
 | P6.3 Records and Profile screen | Series records keyed by the opponent's player id (D-010) |
 | P6.4 Daily streak and featured song | Travel-safe streak (D-073); fixed-epoch rotation (D-074) |
 
-**Done when:** XP and unlocks match the progression tests in `RiffCore` on device.
+**Done when:** XP and unlocks match the progression tests in `iMessageRiffCore` on device.
 
 ## Phase 7: polish, onboarding and accessibility
 

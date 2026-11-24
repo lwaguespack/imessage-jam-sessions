@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: scripts/build-ios-simulator.sh   Generate the Xcode project and build Riff for the iOS Simulator.
+# Usage: scripts/build-ios-simulator.sh   Generate the project and build iMessageRiff for the iOS Simulator.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -20,6 +20,6 @@ done
 xcodegen generate
 
 set -o pipefail
-xcodebuild -project Riff.xcodeproj -scheme Riff -configuration Debug \
+xcodebuild -project iMessageRiff.xcodeproj -scheme iMessageRiff -configuration Debug \
     -destination 'generic/platform=iOS Simulator' \
     CODE_SIGNING_ALLOWED=NO build 2>&1 | tee xcodebuild.log

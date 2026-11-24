@@ -1,7 +1,7 @@
 [project]
-name = "riff-tools"
+name = "imessageriff-tools"
 version = "0.1.0"
-description = "Content tools for Riff: chart conversion, draft difficulty reduction, audio generation"
+description = "Content tools for iMessageRiff: chart conversion, draft difficulty reduction, audio generation"
 requires-python = ">=3.11"
 dependencies = ["numpy>=1.26"]
 
@@ -9,10 +9,10 @@ dependencies = ["numpy>=1.26"]
 dev = ["pytest>=8", "ruff>=0.6"]
 
 [tool.setuptools.packages.find]
-include = ["riff_tools*"]
+include = ["imessageriff_tools*"]
 
 [tool.setuptools.package-data]
-riff_tools = ["data/*.json"]
+imessageriff_tools = ["data/*.json"]
 
 [tool.ruff]
 line-length = 100

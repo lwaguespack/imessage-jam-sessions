@@ -20,7 +20,7 @@ two review areas (build and content/UX/legal) did not run. PLAN_REVIEW.md says w
 | --- | --- | --- | --- |
 | D-100 | Your Grok and Opus notes | Not received; plan reconciled against them when shared | Before Phase 1 ends |
 | D-101 | Music source for the 5 launch songs | Commission originals with stems; placeholders until then | Phase 0 (long lead) |
-| D-102 | Product name | "Riff" stays a code name until a name clears App Store and trademark searches | Phase 8 |
+| D-102 | Product name clearance | iMessageRiff; App Store availability and trademark review still need confirmation | Phase 8 |
 | D-103 | Bundle id prefix and Apple Developer Team | Placeholder prefix in `Config/Base.xcconfig`; yours go in `Config/Local.xcconfig` | Phase S |
 | D-104 | Fallback web domain | `riff.invalid` placeholder (never resolves) | Phase 4 |
 | D-052 | Ghost taps (a touch that matches no note) | Reset the streak; not counted as a Miss | Phase 1 |
@@ -37,13 +37,14 @@ two review areas (build and content/UX/legal) did not run. PLAN_REVIEW.md says w
 ## Process and tooling
 
 ### D-001 The repository root is the project root; "Riff" is a code name
+**Naming superseded by D-121.**
 **Decided.** The plan's `riff/` folder is this repository. Every user-visible use of the name sits
 behind one build setting so renaming is one edit.
 
 ### D-002 The build loop is CI plus a Swift container; your Mac is needed only for devices
 **Decided.** Replaces plan section 12. The repository is public, so GitHub Actions macOS runners are
 free: every push runs `xcodegen`, an unsigned simulator build and the test suites, and the logs are
-readable from a cloud session. `RiffCore` also builds and tests on Linux (Swift 6.2 in Docker), so
+readable from a cloud session. `iMessageRiffCore` also builds and tests on Linux (Swift 6.2 in Docker), so
 rules work no longer waits on a Mac. What still needs you: running on real iPhones, TestFlight, and
 pasting Diagnostics reports back.
 
@@ -66,7 +67,7 @@ stores take a base URL so a later companion app can move them into a group conta
 yours.
 
 ### D-007 One Swift command-line tool, built from the engine, validates charts
-**Decided.** `riffcli` (in the `RiffCore` package) validates charts, writes their computed fields
+**Decided.** `imessageriffcli` (in the `iMessageRiffCore` package) validates charts, writes their computed fields
 (base score, score ceiling, star cut-offs, hash), runs the bot simulator and inspects payloads. A
 Python re-implementation of scoring would drift from the engine. Python keeps what it is good at:
 converting `.chart` files, drafting lower difficulties, generating audio.
@@ -78,7 +79,7 @@ a silent change fails. `rulesVersion` is part of the chart hash and the match pa
 versions with different rules get "Update needed" instead of a quietly unfair duel (GAME-8).
 
 ### D-009 Determinism rules for the engine
-**Decided.** `RiffCore` never reads a clock, a random source, or iterates a `Dictionary`/`Set`
+**Decided.** `iMessageRiffCore` never reads a clock, a random source, or iterates a `Dictionary`/`Set`
 where order reaches output. Bots use a seeded generator that ships in the package. Time is integer
 microseconds, chart positions are integer ticks, ratios are integers (GAME-2, GAME-3, GAME-17).
 
@@ -131,7 +132,7 @@ Encoding is canonical: equal states give equal bytes.
 **Decided.** HMAC-SHA256 truncated to 8 bytes with a documented per-version constant key. Only this
 extension can create its messages, and anyone able to run modified code has the key anyway, so the
 tag detects corruption and casual edits and nothing more (MATCH-11). No build-time secret plumbing,
-which also suits a public repository. SHA-256 is implemented in `RiffCore` (CryptoKit does not exist
+which also suits a public repository. SHA-256 is implemented in `iMessageRiffCore` (CryptoKit does not exist
 on Linux) and cross-checked against CryptoKit in the macOS test run.
 
 ### D-017 The payload must never reach a web server; the spike picks the URL form
@@ -162,7 +163,7 @@ score" button using `send`.
 ### D-021 Routing is a pure function of extension state
 **Decided.** Selection in Messages is sticky and re-tapping the same bubble fires no callback
 (MSG-5). The router is re-evaluated on every lifecycle callback from explicit inputs, lives in
-`RiffCore` so it is unit-tested, and every match screen has a Home action.
+`iMessageRiffCore` so it is unit-tested, and every match screen has a Home action.
 
 ### D-022 Bubble text comes from the payload; each message sets summary and accessibility text
 **Decided.** Names in captions use the players' nicknames. The undocumented participant-name
@@ -221,7 +222,7 @@ terms that hardware cannot fail for us.
 
 ### D-033 Calibration: 32 scored taps after 4 warm-ups, median, with rejection rules
 **Decided.** Sixteen taps give a standard error near the ±10 ms gate, so a correct build would
-fail the gate a third of the time (AUD-4). The estimator is pure code in `RiffCore` with tests.
+fail the gate a third of the time (AUD-4). The estimator is pure code in `iMessageRiffCore` with tests.
 The visual offset comes from the display's presentation time plus a trim slider, not a tap-to-flash
 test (AUD-7).
 
@@ -357,7 +358,7 @@ D-107 corrects the percentage divisor and specifies that deferred match bonuses 
 **Decided.** Level is derived from XP, not stored (MATCH-18).
 
 ### D-076 Match and progression rules get a randomised convergence test and shared golden vectors
-**Decided.** A simulator inside the `RiffCore` tests runs several devices through random message
+**Decided.** A simulator inside the `iMessageRiffCore` tests runs several devices through random message
 orderings, duplicates, reinstalls and second devices, asserting convergence and no lost entry for
 joins within the limits, plus at-most-once local settlement. D-099 records why first-observed
 standings and payouts cannot be guaranteed to agree across disconnected devices.
@@ -445,7 +446,7 @@ the rules digest (D-085), so `rulesVersion` stays 2.
 **Decided.** `ChartDecoder` refuses a file with a missing field, a wrong type, a field the format
 does not define, an explicit `null`, or a number that is not whole. Swift's decoder ignores unknown
 keys, so a misspelt `length` would have turned a hold into a tap, and changed the chart's hash,
-without a word. `riffcli chart compute` rewrites the whole file as canonical JSON, so a chart has one
+without a word. `imessageriffcli chart compute` rewrites the whole file as canonical JSON, so a chart has one
 byte form and a diff shows only real changes; a file that fails validation is left untouched. The
 hash's `rules=` line is the engine's `rulesVersion`, not the number stored in the file, so a chart
 computed under older rules is reported as out of date instead of passing.
@@ -619,6 +620,14 @@ no-reopen and at-most-once rules across crashes. There is no global exactly-once
 first-observed standings can differ, and future profile sync must also reconcile settlement records.
 
 ### D-120 Allow an existing full app bundle identifier
-**Decided.** A registered app ID need not end in `.Riff`. `RIFF_APP_BUNDLE_IDENTIFIER` defaults
+**Decided; default renamed by D-121.** A registered app ID need not end in `.Riff`. `RIFF_APP_BUNDLE_IDENTIFIER` defaults
 to `<prefix>.Riff` but can be overridden locally; the extension derives its identifier from the
 same full app ID. This preserves existing defaults and keeps both signing identifiers consistent.
+
+### D-121 Rename the project to iMessageRiff
+**Decided by the owner.** The app display name, project, source folders, core package and developer
+tools use iMessageRiff instead of the former Riff code name. Existing full bundle IDs and signing
+settings remain unchanged; `RIFF_*` settings and environment variables keep their existing names for
+compatibility. Versioned chart, progression and message-format identifiers retain their existing
+bytes so the rename does not invalidate fixtures or previously encoded data. App Store availability
+and trademark clearance have not been verified.

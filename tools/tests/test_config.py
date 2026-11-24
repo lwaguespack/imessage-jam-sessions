@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from riff_tools import __version__, config
+from imessageriff_tools import __version__, config
 
 TOOLS = Path(__file__).resolve().parent.parent
 
@@ -50,7 +50,10 @@ def test_unknown_key_raises():
 
 def run_cli(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, "-m", "riff_tools", *args], cwd=TOOLS, capture_output=True, text=True
+        [sys.executable, "-m", "imessageriff_tools", *args],
+        cwd=TOOLS,
+        capture_output=True,
+        text=True,
     )
 
 

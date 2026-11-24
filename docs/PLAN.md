@@ -7,6 +7,8 @@
 > [plan/](plan/README.md). The three diagrams did not survive the export and are marked
 > "embedded content" below.
 
+> **Naming note:** The former Riff code name below is now iMessageRiff (D-121).
+
 Nov 12, 2026 · @Lo
 
 ## 1. Overview

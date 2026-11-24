@@ -38,12 +38,12 @@ Mac or device, and the spike needs only a small throwaway build.
 
 | Task | Status |
 | --- | --- |
-| P0.2 Repository, `project.yml`, app stub, Messages extension, `RiffCore` package, tests | Done. CI generates the project and builds it for the simulator on a macOS runner |
+| P0.2 Repository, `project.yml`, app stub, Messages extension, `iMessageRiffCore` package, tests | Done. CI generates the project and builds it for the simulator on a macOS runner |
 | P0.3 README, formatter config, one script that runs every check | Done (`scripts/check.sh`) |
 | Icon set with every slot filled, privacy manifest, export-compliance flag | Done with placeholders (D-028) |
 | P0.1 Bundle id prefix and Team ID in `Config/Local.xcconfig` | **Owner** |
 | App Store Connect record; first TestFlight build | **Owner**, before Phase S |
-| Run the Riff scheme on your iPhone and open it in Messages | **Owner**: this is the half of the Phase 0 gate CI cannot check |
+| Run the iMessageRiff scheme on your iPhone and open it in Messages | **Owner**: this is the half of the Phase 0 gate CI cannot check |
 
 ## What happens next
 

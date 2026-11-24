@@ -4,7 +4,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$repo_root"
-fixtures=Packages/RiffCore/Tests/RiffCoreTests/Fixtures
+fixtures=Packages/iMessageRiffCore/Tests/iMessageRiffCoreTests/Fixtures
 
 for version in 1 2; do
     IFS= read -r payload < "$fixtures/payload-v$version.txt"
@@ -13,7 +13,7 @@ for version in 1 2; do
     else
         expected="$payload"
     fi
-    output="$(scripts/swiftw run --package-path Packages/RiffCore riffcli payload inspect "data:text/plain,$payload")"
+    output="$(scripts/swiftw run --package-path Packages/iMessageRiffCore imessageriffcli payload inspect "data:text/plain,$payload")"
     if ! grep -Fxq "wireVersion: $version" <<< "$output" \
         || ! grep -Fxq "canonicalV2: $expected" <<< "$output"; then
         echo "payload inspect did not round-trip the version-$version vector:" >&2

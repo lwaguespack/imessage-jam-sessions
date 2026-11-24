@@ -3,6 +3,8 @@
 Reviewed 2026-11-14 against revision 1 of [PLAN.md](PLAN.md). What changed as a result is logged in
 [DECISIONS.md](DECISIONS.md); this document is the evidence.
 
+The historical findings retain the former Riff code name; the project is now iMessageRiff (D-121).
+
 ## How it was done
 
 Each area of the plan went to a separate reviewer told to check claims against primary sources (Apple's

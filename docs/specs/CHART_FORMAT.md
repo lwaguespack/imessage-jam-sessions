@@ -1,6 +1,6 @@
 # Chart and song formats
 
-The files a song ships as, and the rules a chart must pass. `riffcli` (built from the engine) is the
+The files a song ships as, and the rules a chart must pass. `imessageriffcli` (built from the engine) is the
 only tool that validates charts and writes their computed fields. (D-007)
 
 **Status: draft 1.** The validation numbers come from the gameplay review (GAME-5, GAME-7, GAME-11),
@@ -44,7 +44,7 @@ milli-BPM, and `computed` gains star cut-offs and the rules version.
 }
 ```
 
-The zeros are placeholders: real values are written by `riffcli chart compute`, never by hand.
+The zeros are placeholders: real values are written by `imessageriffcli chart compute`, never by hand.
 
 - Lanes are 0 to 3 in the file. `resolution` is ticks per quarter note.
 - Two notes on one tick form a chord (at most 2 notes). `length` in ticks marks a hold.
@@ -55,7 +55,7 @@ The zeros are placeholders: real values are written by `riffcli chart compute`, 
   format defines: a misspelt `length` would otherwise turn a hold into a tap without a word. `length`
   is the only optional field; a tap leaves it out and never writes `null`. Every number is a whole
   number. (D-089)
-- `riffcli` writes chart files as canonical JSON: keys in code-point order, two-space indentation and
+- `imessageriffcli` writes chart files as canonical JSON: keys in code-point order, two-space indentation and
   one trailing newline.
 
 ## 2. Chart hash
@@ -82,9 +82,9 @@ different scoring rules never agree on a hash. (D-008)
 
 ## 3. Computed fields
 
-`riffcli chart compute <file>` validates, then writes `computed`: `rulesVersion` (the engine's),
+`imessageriffcli chart compute <file>` validates, then writes `computed`: `rulesVersion` (the engine's),
 `noteCount` (a hold counts once, a chord counts each note), `baseScore`, `maxScore` and `starCutoffs`
-as defined in [GAME_RULES.md](GAME_RULES.md) section 7, and `hash`. `riffcli chart check <file>` fails
+as defined in [GAME_RULES.md](GAME_RULES.md) section 7, and `hash`. `imessageriffcli chart check <file>` fails
 if any stored value differs from a fresh computation.
 
 - `compute` rewrites the whole file as canonical JSON (section 1). A file that cannot be read or that
@@ -219,6 +219,6 @@ outstanding content review.
    them.
 7. Whether an Easy chart may put a note on the tick where a hold in another lane ends. The contact rule
    allows it, because the hold is over, but it asks a beginner to lift one finger as another lands.
-8. Which command checks a chart against its manifest. `ChartValidator` accepts one; `riffcli chart
+8. Which command checks a chart against its manifest. `ChartValidator` accepts one; `imessageriffcli chart
    check` reads the chart alone. A song-level check belongs with the content pipeline in Phase 5.
 9. Whether short or slow songs should be allowed fewer Hype phrases (section 4.2, D-090).

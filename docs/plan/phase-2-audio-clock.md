@@ -37,7 +37,7 @@ heardSongTime(t) = t + ô - L - routeOffset
 ```
 
 Before the start time, when the player has no valid player time, the requested start time is used.
-The filter is pure integer code in `RiffCore` (`Timing/ClockFilter.swift`) so it is unit-tested; the
+The filter is pure integer code in `iMessageRiffCore` (`Timing/ClockFilter.swift`) so it is unit-tested; the
 extension only feeds it samples. The host clock is read with `CACurrentMediaTime()`, never
 `mach_absolute_time` (D-039).
 
@@ -58,7 +58,7 @@ added: a scheduled start already accounts for it.
 
 ### Calibration (D-033)
 
-The estimator is pure code in `RiffCore` (`Timing/CalibrationEstimator.swift`):
+The estimator is pure code in `iMessageRiffCore` (`Timing/CalibrationEstimator.swift`):
 
 1. Clicks at least 600 ms apart, so a tap is never ambiguous between two clicks.
 2. 4 warm-up clicks are discarded, then 32 are scored. Each tap is matched to its nearest click.
@@ -87,9 +87,9 @@ beats, and re-anchors the clock (GAME_RULES section 8).
 
 ## Tasks
 
-| Task | Files (under `RiffMessages/Audio/` unless noted) | Tests or checks |
+| Task | Files (under `iMessageRiffMessages/Audio/` unless noted) | Tests or checks |
 | --- | --- | --- |
-| P2.0 Pure timing code | `RiffCore`: `Timing/ClockFilter.swift`, `Timing/CalibrationEstimator.swift`, `Timing/RouteClass.swift` | Unit tests on Linux: slew, snap, median, rejection, clamping |
+| P2.0 Pure timing code | `iMessageRiffCore`: `Timing/ClockFilter.swift`, `Timing/CalibrationEstimator.swift`, `Timing/RouteClass.swift` | Unit tests on Linux: slew, snap, median, rejection, clamping |
 | P2.1 Engine | `AudioEngine.swift`, `AudioSessionPolicy.swift`, `AudioCompat.swift` (wrappers for calls deprecated in the iOS 27 SDK, D-036: verify each against the SDK first) | CI build with no deprecation warnings on Xcode 26 and 27 |
 | P2.2 Start, pause, resume | `SongPlayer.swift` | Device: resume lands within one frame of the pause point |
 | P2.3 Song clock | `SongClock.swift` feeding `ClockFilter` | Device: see the gate |
